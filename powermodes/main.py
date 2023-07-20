@@ -29,6 +29,7 @@ from importlib.metadata import version
 from os import getuid
 
 from .utils import fatal, warning
+from .pluginloader import list_plugins
 
 ##
 # @enum ArgumentsActionType
@@ -151,8 +152,11 @@ def main() -> ():
     if action not in [ ArgumentsActionType.LIST_PLUGINS, ArgumentsActionType.LIST_MODES ]:
         assert_root()
 
-    print(args)
-    print(action)
+    if action == ArgumentsActionType.LIST_PLUGINS:
+        for plugin in list_plugins():
+            print(plugin)
+    else:
+        fatal('feature not implemented')
 
 if __name__ == '__main__':
     main()

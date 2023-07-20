@@ -1,4 +1,5 @@
 INPUT                  = powermodes README.md
+RECURSIVE              = YES
 FILE_PATTERNS          = *.py
 
 OUTPUT_DIRECTORY       = docs
