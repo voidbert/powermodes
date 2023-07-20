@@ -1,0 +1,37 @@
+[build-system]
+    requires = [ "setuptools", "wheel" ]
+    build-backend = "setuptools.build_meta"
+
+[project]
+    name = "powermodes"
+    description = "Laptop power consumption manager"
+    version = "0.0.1"
+
+    authors = [
+        { name = "Voidbert", email = "humbertogilgomes@protonmail.com" },
+    ]
+
+    readme = "README.md"
+    license = { file = "LICENSE" }
+
+    requires-python = ">=3.11" # Detected by vermin
+
+    keywords = [ "power management", "battery" ]
+    classifiers = [
+        "Development Status :: 2 - Pre-Alpha",
+        "Environment :: Console",
+        "Intended Audience :: End Users/Desktop",
+        "License :: OSI Approved :: Apache Software License",
+        "Natural Language :: English",
+        "Operating System :: POSIX :: Linux",
+        "Programming Langunage :: Python :: 3",
+        "Topic :: System"
+    ]
+
+    dependencies = []
+
+[project.urls]
+    Homepage = "https://github.com/voidbert/dotfiles"
+    Repository = "https://github.com/voidbert/dotfiles"
+    "Bug Tracker" = "https://github.com/voidbert/dotfiles/issues"
+
