@@ -26,6 +26,7 @@
 from enum import Enum
 from argparse import ArgumentParser, Namespace
 from importlib.metadata import version
+from os import getuid
 
 from .utils import fatal, warning
 
@@ -133,11 +134,23 @@ def analyze_arguments(args: Namespace) -> ArgumentsActionType:
     return action_type
 
 ##
+# @brief Leaves the program if the current user isn't root.
+# @details An error message is printed to stderr.
+##
+def assert_root() -> ():
+    if getuid() != 0:
+        fatal('powermodes must be run as root')
+
+##
 # @brief The entry point to powermodes.
 ##
 def main() -> ():
     args = parse_arguments()
     action = analyze_arguments(args)
+
+    if action not in [ ArgumentsActionType.LIST_PLUGINS, ArgumentsActionType.LIST_MODES ]:
+        assert_root()
+
     print(args)
     print(action)
 
