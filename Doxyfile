@@ -1,0 +1,13 @@
+INPUT                  = powermodes README.md
+FILE_PATTERNS          = *.py
+
+OUTPUT_DIRECTORY       = docs
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+
+PROJECT_NAME           = powermodes
+USE_MDFILE_AS_MAINPAGE = README.md
+OPTIMIZE_OUTPUT_JAVA   = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+

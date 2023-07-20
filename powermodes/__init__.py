@@ -15,3 +15,9 @@
 #
 # -------------------------------------------------------------------------------------------------
 
+##
+# @file __init__.py
+# @package powermodes
+# @brief Laptop power consumption manager
+##
+

@@ -17,7 +17,16 @@
 #
 # -------------------------------------------------------------------------------------------------
 
-def main():
+##
+# @file main.py
+# @package powermodes.main
+# @brief Contains the entry point to program
+##
+
+##
+# @brief The entry point to powermodes
+##
+def main() -> ():
     print('Hello, world!')
 
 if __name__ == '__main__':
