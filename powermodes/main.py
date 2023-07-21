@@ -29,7 +29,7 @@ from importlib.metadata import version
 from os import getuid
 
 from .utils import fatal, warning
-from .pluginloader import list_plugins
+from .pluginloader import list_plugins, plugin_interact
 
 ##
 # @enum ArgumentsActionType
@@ -109,7 +109,7 @@ def analyze_arguments(args: Namespace) -> ArgumentsActionType:
 
     if action_type is None:
         if args.config is None:
-            action_type = ArgumentsActionType.PLUGIN_INTERACTIVE_MODE
+            action_type = ArgumentsActionType.PLUGINS_INTERACTIVE_MODE
             warning('no config file provided. Only plugin configuration available!')
         else:
             action_type = ArgumentsActionType.INTERACTIVE_MODE
@@ -155,6 +155,8 @@ def main() -> ():
     if action == ArgumentsActionType.LIST_PLUGINS:
         for plugin in list_plugins():
             print(plugin)
+    elif action == ArgumentsActionType.PLUGIN_INTERACTIVE_MODE:
+        plugin_interact(args.plugin)
     else:
         fatal('feature not implemented')
 

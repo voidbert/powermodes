@@ -24,6 +24,8 @@
 from os import listdir
 from os.path import dirname, realpath, isfile, join
 from pathlib import Path
+from importlib.util import spec_from_file_location, module_from_spec
+from types import ModuleType
 
 from .utils import fatal
 
@@ -52,4 +54,28 @@ def list_plugins() -> list[str]:
         return plugins
     except:
         fatal('failed to list plugins')
+
+##
+# @brief Loads and returns a Python module.
+##
+def __load_module(name: str) -> ModuleType:
+    try:
+        path = join(plugins_dir, f'{name}.py')
+        if not isfile(path):
+            fatal(f'plugin {name} does not exist!')
+
+        spec = spec_from_file_location(name, path)
+        module = module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        return module
+    except Exception as e:
+        print(e)
+        fatal(f'failed to load module {name}!')
+
+##
+# @brief Loads a plugin and enters its interactive mode.
+##
+def plugin_interact(name: str) -> ():
+    __load_module(name).interact()
 
