@@ -29,8 +29,8 @@ from importlib.metadata import version
 from os import getuid
 
 from .utils import fatal, warning
-from .pluginloader import list_plugins, plugin_interact
-from .configloader import load_config, list_modes
+from .pluginloader import list_plugins, plugin_interact, plugin_configure
+from .configloader import load_config, list_modes, load_args_config
 
 ##
 # @enum ArgumentsActionType
@@ -153,7 +153,11 @@ def main() -> ():
     if action not in [ ArgumentsActionType.LIST_PLUGINS, ArgumentsActionType.LIST_MODES ]:
         assert_root()
 
-    if action == ArgumentsActionType.LIST_PLUGINS:
+    if action == ArgumentsActionType.CONFIG_PLUGIN_ARGS:
+        plugin_config = load_args_config(args.plugin_args)
+        plugin_configure(args.plugin, plugin_config)
+
+    elif action == ArgumentsActionType.LIST_PLUGINS:
         for plugin in list_plugins():
             print(plugin)
 

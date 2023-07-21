@@ -111,3 +111,17 @@ def plugin_interact(name: str) -> ():
 
     interact()
 
+def plugin_configure(name: str, config: any) -> ():
+    module = __load_plugin(name)
+
+    # Check for configure() before calling it
+    configure = None
+    try:
+        configure = getattr(module, 'configure')
+        if not callable(configure):
+            raise Exception()
+    except:
+        fatal(f'module {name} doesn\'t support configuration')
+
+    configure(config)
+

@@ -23,7 +23,10 @@
 
 from utils import warning
 
-def interact():
+def configure(config: any) -> ():
+    print(f'I have just been configured with: {config}')
+
+def interact() -> ():
     print('Say something and I\'ll say it louder!')
     print(input().upper())
     warning('I do nothing as of now')

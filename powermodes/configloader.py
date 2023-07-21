@@ -39,6 +39,19 @@ def load_config(path: str) -> dict[str, any]:
         fatal(f'failed to load config from "{path}"!')
 
 ##
+# @brief Converts a command-line argument to a configuration object to be used by a plugin.
+# @details The argument must be a valid TOML value (to the right of the equal sign)
+# @details Will leave the program in case of an error.
+# @param arg The command-line argument
+##
+def load_args_config(arg: str) -> any:
+    toml = f'property = {arg}'
+    try:
+        return tomllib.loads(toml)['property']
+    except:
+        fatal(f'failed to parse TOML plugin config argument!')
+
+##
 # @brief Lists all modes in a loaded configuration.
 # @returns A list of mode names.
 ##
