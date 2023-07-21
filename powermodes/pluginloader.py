@@ -24,6 +24,7 @@
 from os import listdir
 from os.path import dirname, realpath, isfile, join
 from pathlib import Path
+
 from importlib.util import spec_from_file_location, module_from_spec
 from types import ModuleType
 
@@ -56,26 +57,57 @@ def list_plugins() -> list[str]:
         fatal('failed to list plugins')
 
 ##
-# @brief Loads and returns a Python module.
+# @brief Loads a Python module for plugin loading purposes
+# @details Some source code is injected to allow the plugin to import code from powermodes'
+#          modules. In case of failure, the program is exited with an error.
+# @param name The name of the plugin.
 ##
-def __load_module(name: str) -> ModuleType:
-    try:
-        path = join(plugins_dir, f'{name}.py')
-        if not isfile(path):
-            fatal(f'plugin {name} does not exist!')
+def __load_plugin(name: str) -> ModuleType:
 
+    # Special error for plugins that don't exist
+    path = join(plugins_dir, f'{name}.py')
+    if not isfile(path):
+        fatal(f'plugin {name} does not exist!')
+
+    # Load module
+    try:
         spec = spec_from_file_location(name, path)
+        source = spec.loader.get_source(name)
+
+        source = f'''
+def prepare_module_imports():
+    from os.path import dirname
+    from sys import path
+    path.insert(0, dirname(dirname(__file__)))
+
+prepare_module_imports()
+
+{source}
+'''
         module = module_from_spec(spec)
-        spec.loader.exec_module(module)
+        codeobj = compile(source, module.__spec__.origin, 'exec')
+        exec(codeobj, module.__dict__)
 
         return module
     except Exception as e:
         print(e)
-        fatal(f'failed to load module {name}!')
+        fatal(f'failed to load Python module in "{path}"!')
+
 
 ##
 # @brief Loads a plugin and enters its interactive mode.
 ##
 def plugin_interact(name: str) -> ():
-    __load_module(name).interact()
+    module = __load_plugin(name)
+
+    # Check for interact() before calling it
+    interact = None
+    try:
+        interact = getattr(module, 'interact')
+        if not callable(interact):
+            raise Exception()
+    except:
+        fatal(f'module {name} doesn\'t support interaction')
+
+    interact()
 

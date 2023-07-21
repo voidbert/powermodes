@@ -21,7 +21,10 @@
 # @brief Manage pstates on Intel processors
 ##
 
+from utils import warning
+
 def interact():
     print('Say something and I\'ll say it louder!')
     print(input().upper())
+    warning('I do nothing as of now')
 
