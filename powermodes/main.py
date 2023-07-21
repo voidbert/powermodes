@@ -30,6 +30,7 @@ from os import getuid
 
 from .utils import fatal, warning
 from .pluginloader import list_plugins, plugin_interact
+from .configloader import load_config, list_modes
 
 ##
 # @enum ArgumentsActionType
@@ -155,6 +156,12 @@ def main() -> ():
     if action == ArgumentsActionType.LIST_PLUGINS:
         for plugin in list_plugins():
             print(plugin)
+
+    elif action == ArgumentsActionType.LIST_MODES:
+        config = load_config(args.config)
+        for mode in list_modes(config):
+            print(mode)
+
     elif action == ArgumentsActionType.PLUGIN_INTERACTIVE_MODE:
         plugin_interact(args.plugin)
     else:
