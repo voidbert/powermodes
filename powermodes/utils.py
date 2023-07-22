@@ -25,6 +25,9 @@ from sys import exit, stderr
 
 ##
 # @brief Prints a message to stderr and exits the program with code 1.
+# @details The message will have the folowing format: `"error: [your message]"`. If `stderr` is a
+#          terminal, this will be printed in red.
+# @param msg Message to be printed.
 ##
 def fatal(msg: any) -> ():
     print_str = f'fatal: {msg}'
@@ -36,6 +39,9 @@ def fatal(msg: any) -> ():
 
 ##
 # @brief Prints a warning message to stderr.
+# @details The message will have the folowing format: `"warning: [your message]"`. If `stderr` is a
+#          terminal, this will be printed in yellow.
+# @param msg Message to be printed.
 ##
 def warning(msg: any) -> ():
     print_str = f'warning: {msg}'
@@ -46,9 +52,13 @@ def warning(msg: any) -> ():
 
 ##
 # @brief Allows the user to choose an element from the list by inputting a number.
-# @param values List of values to choose from
-# @param names  Presented name of the values
-# @returns The value chosen
+# @details If the user's input is invalid, this method keeps trying to get valid input from the
+#          user.
+# @param values List of values to choose from. It must have the same length and @p names and not be
+#               empty.
+# @param names  Presented names of the values. It must have the same length and @p values and not
+#               be empty.
+# @returns The value chosen (from @p values).
 ##
 def choose_from(values: list[any], names: list[str]) -> any:
     # Print items

@@ -20,7 +20,7 @@
 ##
 # @file main.py
 # @package powermodes.main
-# @brief Contains the entry point to program.
+# @brief Entry point and command-line argument parsing.
 ##
 
 from enum import Enum
@@ -52,14 +52,14 @@ class ArgumentsActionType(Enum):
 ##
 # @brief Parses command-line arguments.
 # @returns A `argparse.Namespace` with the following keys:
-#            - `config`:       path to configuration file;
+#            - `config : str`:        path to configuration file;
 #
-#            - `mode`:         power mode to be activated;
-#            - `list_modes`:   if the user wants to list power modes;
+#            - `mode : str`:          power mode to be activated;
+#            - `list_modes : bool`:   if the user wants to list power modes;
 #
-#            - `plugin`:       plugin to be configured;
-#            - `plugin_args`:  arguments for the plugin to be configured;
-#            - `list_plugins`: if the user wants to list installed plugins.
+#            - `plugin : str`:        plugin to be configured;
+#            - `plugin_args : str`:   arguments for the plugin to be configured;
+#            - `list_plugins : bool`: if the user wants to list installed plugins.
 ##
 def parse_arguments() -> Namespace:
     parser = ArgumentParser(prog='powermodes',
@@ -76,7 +76,7 @@ def parse_arguments() -> Namespace:
     parser.add_argument('-v', '--version', action='version', version=powermodes_version)
     parser.add_argument('-c', '--config', help='specify path to configuration file')
 
-    parser.add_argument('-p', '--plugin', help='configure installed PLUGIN.')
+    parser.add_argument('-p', '--plugin', help='configure installed PLUGIN')
     parser.add_argument('--plugin-args',
                         help='arguments for PLUGIN (instead of interactive config)')
     parser.add_argument('--list-plugins', action='store_true', help='list installed plugins')
@@ -89,6 +89,7 @@ def parse_arguments() -> Namespace:
 ##
 # @brief Validates and interprets command line arguments.
 # @details Exits with a message in case of error.
+# @param args Result from [parse_arguments](@ref powermodes.main.parse_arguments).
 # @returns The action the user wants to perform.
 ##
 def analyze_arguments(args: Namespace) -> ArgumentsActionType:
@@ -142,7 +143,7 @@ def analyze_arguments(args: Namespace) -> ArgumentsActionType:
 ##
 def assert_root() -> ():
     if getuid() != 0:
-        fatal('powermodes must be run as root')
+        fatal('powermodes must be run as root!')
 
 ##
 # @brief The entry point to powermodes.

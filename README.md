@@ -80,7 +80,7 @@ Project documentation can be generated with:
 $ doxygen
 ```
 
-#### Development of new modules
+#### Development of new plugins
 
 Modules must define two methods:
 
@@ -103,3 +103,6 @@ without any relative notation, as you were in the `powermodes` directory. For ex
 ```python
 from utils import fatal
 ```
+
+Keep in mind that plugins run with root permissions, so be careful!
+

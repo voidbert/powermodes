@@ -18,7 +18,7 @@
 ##
 # @file pluginloader.py
 # @package powermodes.pluginloader
-# @brief Loading and listing of plugins
+# @brief Loading and listing of plugins.
 ##
 
 from os import listdir
@@ -31,7 +31,7 @@ from types import ModuleType
 from .utils import fatal
 
 ##
-# @brief The directory that contains the plugins
+# @brief The directory that contains the plugins.
 ##
 plugins_dir = join(dirname(realpath(__file__)), 'plugins')
 
@@ -54,13 +54,14 @@ def list_plugins() -> list[str]:
 
         return plugins
     except:
-        fatal('failed to list plugins')
+        fatal('failed to list plugins!')
 
 ##
-# @brief Loads a Python module for plugin loading purposes
+# @brief Loads a Python module for plugin loading purposes.
 # @details Some source code is injected to allow the plugin to import code from powermodes'
-#          modules. In case of failure, the program is exited with an error.
+#          modules. In case of failure, the program is exited with an error and a message.
 # @param name The name of the plugin.
+# @returns The Python module object.
 ##
 def __load_plugin(name: str) -> ModuleType:
 
@@ -96,6 +97,8 @@ prepare_module_imports()
 
 ##
 # @brief Loads a plugin and enters its interactive mode.
+# @details In case of failure, the program is exited with an error message.
+# @param name The name of the plugin.
 ##
 def plugin_interact(name: str) -> ():
     module = __load_plugin(name)
@@ -111,6 +114,12 @@ def plugin_interact(name: str) -> ():
 
     interact()
 
+##
+# @brief Loads a plugin and configures it.
+# @details In case of failure, the program is exited with an error message.
+# @param name The name of the plugin.
+# @param config The object to configure the plugin with (for the `configure` method).
+##
 def plugin_configure(name: str, config: any) -> ():
     module = __load_plugin(name)
 

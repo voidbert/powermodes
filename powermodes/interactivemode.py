@@ -32,11 +32,11 @@ from .utils import choose_from
 # @brief Whether the user will choose a power mode or configure a plugin.
 ##
 class ModeOrPlugin(Enum):
-    MODE = 1   ##< @brief The user will apply a power mode
-    PLUGIN = 2 ##< @brief The user will configure a plugin
+    MODE = 1   ##< @brief The user will apply a power mode.
+    PLUGIN = 2 ##< @brief The user will configure a plugin.
 
 ##
-# @brief Starts the interactive mode
+# @brief Starts the interactive mode.
 # @param config_path Path to the configuration file. May be `None` for no power mode options.
 ##
 def interactive_mode(config_path: str) -> ():
