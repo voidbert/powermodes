@@ -30,7 +30,8 @@ from os import getuid
 
 from .utils import fatal, warning
 from .pluginloader import list_plugins, plugin_interact, plugin_configure
-from .configloader import load_config, list_modes, load_args_config
+from .configloader import load_config, list_modes, load_args_config, apply_mode
+from .interactivemode import interactive_mode
 
 ##
 # @enum ArgumentsActionType
@@ -161,6 +162,10 @@ def main() -> ():
         for plugin in list_plugins():
             print(plugin)
 
+    elif action == ArgumentsActionType.APPLY_MODE:
+        config = load_config(args.config)
+        apply_mode(config, args.mode)
+
     elif action == ArgumentsActionType.LIST_MODES:
         config = load_config(args.config)
         for mode in list_modes(config):
@@ -169,7 +174,7 @@ def main() -> ():
     elif action == ArgumentsActionType.PLUGIN_INTERACTIVE_MODE:
         plugin_interact(args.plugin)
     else:
-        fatal('feature not implemented')
+        interactive_mode(args.config)
 
 if __name__ == '__main__':
     main()

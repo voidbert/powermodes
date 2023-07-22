@@ -23,6 +23,7 @@
 
 import tomllib
 
+from .pluginloader import plugin_configure
 from .utils import fatal
 
 ##
@@ -57,4 +58,18 @@ def load_args_config(arg: str) -> any:
 ##
 def list_modes(config: dict[str, any]) -> list[str]:
     return list(config.keys())
+
+##
+# @brief Applies a power mode in the configuration.
+# @param config The loaded configuration.
+# @param name The name of the power mode
+def apply_mode(config: dict[str, any], name: str) -> ():
+    mode = None
+    try:
+        mode = config[name]
+    except:
+        fatal(f'Mode {name} not found!')
+
+    for plugin, args in mode.items():
+        plugin_configure(plugin, args)
 

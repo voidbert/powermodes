@@ -44,3 +44,29 @@ def warning(msg: any) -> ():
 
     print(print_str, file=stderr)
 
+##
+# @brief Allows the user to choose an element from the list by inputting a number.
+# @param values List of values to choose from
+# @param names  Presented name of the values
+# @returns The value chosen
+##
+def choose_from(values: list[any], names: list[str]) -> any:
+    # Print items
+    for i in range(0, len(names)):
+        print(f'  ({i + 1}) - {names[i]}')
+
+    # Get input until it's valid.
+    while True:
+        try:
+            string_input = input('> ')
+            number_input = int(string_input)
+            if number_input not in range(1, len(names) + 1):
+                raise ValueError()
+
+            print('') # For spacing
+            return values[number_input - 1]
+        except KeyboardInterrupt:
+            exit(0)
+        except:
+            print(f'Input must be a number from 1 to {len(names)}')
+
