@@ -80,3 +80,17 @@ def choose_from(values: list[any], names: list[str]) -> any:
         except:
             print(f'Input must be a number from 1 to {len(names)}')
 
+##
+# @brief Reads a text file and returns its contents.
+# @details Exceptions are automatically handled with a fatal error.
+#          This method exists to be used as a one-liner.
+# @param path The path to the file.
+# @returns The text contents of the file.
+##
+def read_file(path: str) -> str:
+    try:
+        with open(path, 'r') as file:
+            return file.read()
+    except:
+        fatal(f'failed to read file "{path}"!')
+
