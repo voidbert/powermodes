@@ -23,7 +23,7 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from os.path import join
+from os.path import join, isfile
 from re import search
 
 from utils import fatal, warning, read_file, write_file
@@ -110,6 +110,13 @@ def can_turbo() -> bool:
 # @returns The status of the driver.
 ##
 def get_driver_status() -> DriverStatus:
+    # Before getting the status, check if intel_pstate=per_cpu_perf_limits is enabled. This makes
+    # using this plugin impossible, because needed sysfs files aren't exposed.
+    if not isfile(pstate_file('min_perf_pct')) or not isfile(pstate_file('max_perf_pct')):
+        fatal('Your kernel is configured with intel_pstate=per_cpu_perf_limits. '
+              'The intelpstate plugin doesn\'t work under these conditions!')
+
+    # Get status
     status = read_file(pstate_file('status'))
     match status:
         case 'active\n':
