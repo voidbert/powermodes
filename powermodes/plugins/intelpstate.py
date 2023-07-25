@@ -26,7 +26,7 @@ from enum import Enum
 from os.path import join, isfile
 from re import search
 
-from utils import fatal, warning, read_file, write_file
+from utils import fatal, warning, read_file, write_file, input_int_range, input_yesno
 
 ##
 # @brief Generates the file path for a file in the intel_pstate directory.
@@ -129,6 +129,43 @@ def get_driver_status() -> DriverStatus:
             fatal(f'intel_pstate reported an unknown status: "{status}"!')
 
 ##
+# @brief Gets the lowest performance percentage the CPU can operate in.
+# @details The program is exited with a message in case of IO errors.
+# @returns The lowest performance percentage.
+##
+def get_lowest_performance_percent() -> int:
+    file = pstate_file('min_perf_pct')
+
+    old_min_pct = read_file(file) # Read current percentage for later.
+
+    # Try to set percentage to 0 and see what value it gets clamped to.
+    write_file(file, '0\n')
+    minimum_pct = read_file(file)
+
+    # Restore old percentage.
+    write_file(file, old_min_pct)
+
+    try:
+        return int(minimum_pct)
+    except:
+        fatal('intelpstate can\'t convert sysfs value to integer!')
+
+##
+# @brief Gets the set of options that must be present on the configuration.
+# @param status The status of the driver influences what needs to be configured.
+# @param turbo  If the CPU supports turbo boosting, that also needs to be configured.
+##
+def get_needed_config_options(status: DriverStatus, turbo: bool) -> set[str]:
+    needed_options = { 'min-percentage', 'max-percentage' }
+
+    if turbo:
+        needed.add('turbo')
+    if status == DriverStatus.ACTIVE:
+        needed_options = needed_options.union({ 'energy-efficient', 'dynamic-boost' })
+
+    return needed_options
+
+##
 # @brief Exits the program with error messages if the user configuration has missing or unknown
 #        options.
 # @param config TOML configuration table (Python dictionary).
@@ -136,12 +173,7 @@ def get_driver_status() -> DriverStatus:
 # @param turbo  If the CPU supports turbo boosting, that also needs to be configured.
 ##
 def validate_config_keys(config: dict[str, any], status: DriverStatus, turbo: bool) -> ():
-    needed_options = { 'min-percentage', 'max-percentage' }
-
-    if turbo:
-        needed.add('turbo')
-    if status == DriverStatus.ACTIVE:
-        needed_options = needed_options.union({ 'energy-efficient', 'dynamic-boost' })
+    needed_options = get_needed_config_options(status, turbo)
 
     config_options = set(config.keys())
     if config_options != needed_options:
@@ -260,12 +292,51 @@ def apply_config(config: PstateConfig) -> ():
     apply_boolean('energy_efficiency', config.energy_efficient)
     apply_boolean('hwp_dynamic_boost', config.dynamic_boost)
 
+##
+# @brief Function that gets called to apply a configuration to the plugin.
+# @param config Parsed TOML configuration.
+##
 def configure(config: any) -> ():
     processed_config = generate_config(config)
     apply_config(processed_config)
 
 def interact() -> ():
-    print('Say something and I\'ll say it louder!')
-    print(input().upper())
-    warning('I do nothing as of now')
+    status = get_driver_status()
+    turbo_support = can_turbo()
+    lowest_pct = get_lowest_performance_percent()
+
+    # Print configuration helper
+    needed_options = list(get_needed_config_options(status, turbo_support))
+    print('When configuring the intelpstate plugin, you need the following options:')
+
+    needed_options_str = ""
+    for i in range(0, len(needed_options)):
+        if i == len(needed_options) - 1:
+            needed_options_str += needed_options[i] + '\n'
+        else:
+            needed_options_str += needed_options[i] + ', '
+    print(needed_options_str)
+
+    # Get user options
+    print(f'Minimum performance percentage ({lowest_pct} - 100):')
+    min_pct = input_int_range(range(lowest_pct, 101))
+    print(f'Maximum performance percentage ({min_pct} - 100):')
+    max_pct = input_int_range(range(min_pct, 101))
+
+    turbo = None
+    energy_efficient = None
+    dynamic_boost = None
+
+    if turbo_support:
+        print('Enable turbo?')
+        turbo = input_yesno()
+    if status == DriverStatus.ACTIVE:
+        print('Enable energy efficient optimizations?')
+        energy_efficient = input_yesno()
+        print('Enable dynamic boost (increase frequency when IO is happening)?')
+        dynamic_boost = input_yesno()
+
+    config = PstateConfig(min_pct, max_pct, turbo, energy_efficient, dynamic_boost)
+    apply_config(config)
+
 

@@ -51,6 +51,47 @@ def warning(msg: any) -> ():
     print(print_str, file=stderr)
 
 ##
+# @brief Gets an integer input from the user within a range.
+# @details If the user's input is invalid, this method keeps trying to get valid input from the
+#          user. **Error messages assume range has `step` one.**
+# @param ran Accepted range of values.
+##
+def input_int_range(ran: range) -> int:
+    while True:
+        try:
+            string_input = input('> ')
+            number_input = int(string_input)
+            if number_input not in ran:
+                raise ValueError()
+
+            print('') # For spacing
+            return number_input
+        except KeyboardInterrupt:
+            exit(0)
+        except:
+            print(f'Input must be an integer from {ran.start} to {ran.stop - ran.step}')
+
+##
+# @brief Gets a boolean integer from the user.
+# @details If the user's input is invalid, this method keeps trying to get valid input from the
+#          user.
+# @returns The boolean value inputted by the user.
+##
+def input_yesno() -> bool:
+    try:
+        yn = input('Y/n > ').lower()
+        if yn == 'y' or yn == 'yes':
+            return True
+        elif yn == 'n' or yn == 'no':
+            return False
+        else:
+            raise ValueError()
+
+        print('') # For spacing
+    except:
+        print('Input must be "y", "n", "yes" or "no". Matching is not case-sensitive.')
+
+##
 # @brief Allows the user to choose an element from the list by inputting a number.
 # @details If the user's input is invalid, this method keeps trying to get valid input from the
 #          user.
@@ -61,24 +102,9 @@ def warning(msg: any) -> ():
 # @returns The value chosen (from @p values).
 ##
 def choose_from(values: list[any], names: list[str]) -> any:
-    # Print items
     for i in range(0, len(names)):
         print(f'  ({i + 1}) - {names[i]}')
-
-    # Get input until it's valid.
-    while True:
-        try:
-            string_input = input('> ')
-            number_input = int(string_input)
-            if number_input not in range(1, len(names) + 1):
-                raise ValueError()
-
-            print('') # For spacing
-            return values[number_input - 1]
-        except KeyboardInterrupt:
-            exit(0)
-        except:
-            print(f'Input must be a number from 1 to {len(names)}')
+    return values[input_int_range(range(1, len(names) + 1)) - 1]
 
 ##
 # @brief Reads a text file and returns its contents.
