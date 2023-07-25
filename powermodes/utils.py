@@ -94,3 +94,17 @@ def read_file(path: str) -> str:
     except:
         fatal(f'failed to read file "{path}"!')
 
+##
+# @brief Writes text to a file.
+# @details Exceptions are automatically handled with a fatal error.
+#          This method exists to be used as a one-liner.
+# @param path The path to the file.
+# @param contents The text contents to be written.
+##
+def write_file(path: str, contents: str) -> ():
+    try:
+        with open(path, 'w') as file:
+            file.write(contents)
+    except:
+        fatal(f'failed to write to file "{path}"!')
+

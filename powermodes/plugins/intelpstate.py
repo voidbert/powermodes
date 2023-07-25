@@ -26,7 +26,7 @@ from enum import Enum
 from os.path import join
 from re import search
 
-from utils import fatal, warning, read_file
+from utils import fatal, warning, read_file, write_file
 
 ##
 # @brief Generates the file path for a file in the intel_pstate directory.
@@ -46,19 +46,20 @@ class DriverStatus(Enum):
 # @brief Internal configuration format.
 # @details For more information, see
 #          [intel_pstate driver documentation](https://www.kernel.org/doc/html/v6.3/admin-guide/pm/intel_pstate.html).
-#          Any member variable can be `None`, meaning that that setting won't be applied.
+#          Unless told otherwise, member variables can be `None`, meaning that those settings won't
+#          be applied.
 ##
 @dataclass
 class PstateConfig:
     ##
     # @brief Minimum frequency (as percentage of CPU spec).
-    # @details Available in both active and passive modes.
+    # @details Available in both active and passive modes. Cannot be `None`.
     ##
     min_percentage: int = None
 
     ##
     # @brief Maximum frequency (as percentage of CPU spec).
-    # @details Available in both active and passive modes.
+    # @details Available in both active and passive modes. Cannot be `None`.
     ##
     max_percentage: int = None
 
@@ -66,7 +67,7 @@ class PstateConfig:
     # @brief Enable / disable turbo.
     # @details Available in both active and passive modes.
     ##
-    turbo : bool = None
+    turbo: bool = None
 
     ##
     # @brief Enable / disable energy efficient optimizations.
@@ -200,10 +201,61 @@ def generate_config(input_config: any) -> PstateConfig:
 
     return PstateConfig(min_pct, max_pct, turbo, energy_efficient, dynamic_boost)
 
+##
+# @brief Applies new performance percentages to the intel_pstate driver.
+# @details This method may exit with a fatal error in case of IO errors.
+# @param min Minimum performance percentage.
+# @param max Maximum performance percentage.
+##
+def apply_percentages(min: int, max: int) -> ():
+    # The intel_pstate driver clamps new performance percentages according to the old ones.
+    # See https://elixir.bootlin.com/linux/latest/source/drivers/cpufreq/intel_pstate.c#L1351 and
+    # https://elixir.bootlin.com/linux/latest/source/drivers/cpufreq/intel_pstate.c#L1384
+    # This may make the new values be applied incorrectly (for example, when the new max
+    # percentage is lower than the old min percentage). To avoid that, temporarily set the minimum
+    # and maximum percentages to their minimum and maximum values.
+
+    min_file = pstate_file('min_perf_pct')
+    max_file = pstate_file('max_perf_pct')
+
+    write_file(min_file, '0\n')
+    write_file(max_file, '100\n')
+
+    write_file(min_file, str(min) + '\n')
+    write_file(max_file, str(max) + '\n')
+
+    # Read back files to confirm if percentages were correctly applied.
+    achieved_min = read_file(min_file)[:-1]
+    achieved_max = read_file(max_file)[:-1]
+
+    if achieved_min != str(min):
+        warning(f'intelpstate failed to apply min-percentage: clamped to {achieved_min}!')
+    if achieved_max != str(max):
+        warning(f'intelpstate failed to apply max-percentage: clamped to {achieved_max}!')
+
+##
+# @brief Applies boolean values to the intel_pstate driver.
+# @details This method may exit with a fatal error in case of IO errors.
+# @param file The file to write to in the intel_pstate sysfs directory (for example, `'turbo'`).
+# @param value The value to be written to file. May be `None` for no writes to happen.
+##
+def apply_boolean(file: str, value: bool) -> ():
+    if value is not None:
+        write_file(pstate_file(file), str(int(value)) + '\n')
+
+##
+# @brief Applies a configuration.
+# @param config The configuration to apply.
+##
+def apply_config(config: PstateConfig) -> ():
+    apply_percentages(config.min_percentage, config.max_percentage)
+    apply_boolean('no_turbo', not config.turbo if config.turbo is not None else None)
+    apply_boolean('energy_efficiency', config.energy_efficient)
+    apply_boolean('hwp_dynamic_boost', config.dynamic_boost)
 
 def configure(config: any) -> ():
     processed_config = generate_config(config)
-    print(processed_config)
+    apply_config(processed_config)
 
 def interact() -> ():
     print('Say something and I\'ll say it louder!')
