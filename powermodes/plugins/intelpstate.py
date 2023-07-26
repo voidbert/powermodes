@@ -159,7 +159,7 @@ def get_needed_config_options(status: DriverStatus, turbo: bool) -> set[str]:
     needed_options = { 'min-percentage', 'max-percentage' }
 
     if turbo:
-        needed.add('turbo')
+        needed_options.add('turbo')
     if status == DriverStatus.ACTIVE:
         needed_options = needed_options.union({ 'energy-efficient', 'dynamic-boost' })
 
