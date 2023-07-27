@@ -23,7 +23,7 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from os.path import join, isfile
+from os.path import join, isfile, isdir
 from re import search
 
 from utils import fatal, warning, read_file, write_file, input_int_range, input_yesno
@@ -83,21 +83,29 @@ class PstateConfig:
 
 ##
 # @brief Determines if the CPU supports Intel Dynamic Acceleration.
-# @details Will exit the program with an error message in case of failure.
+# @details Will assume no turbo support (with a warning message) in case of failure.
 # @returns Whether the CPU supports Intel Dynamic Acceleration (Turbo Boost).
 ##
 def can_turbo() -> bool:
-    cpuinfo = read_file('/proc/cpuinfo')
+    cpuinfo = None
+    try:
+        with open('/proc/cpuinfo') as file:
+            cpuinfo = file.read()
+    except:
+        warning('failed to read /proc/cpuinfo! Assuming CPU can\'t turbo.')
+        return False
 
     flag_match = search(r'\nflags[\s]*:', cpuinfo)
     if not flag_match:
-        fatal('intelpstate cannot read flags from /proc/cpuinfo!')
+        warning('failed to parse /proc/cpuinfo! Assuming CPU can\'t turbo.')
+        return False
 
     flags_string_start = flag_match.span()[1]
     try:
         flags_string_end = cpuinfo.index('\n', flags_string_start)
     except:
-        fatal('intelpstate failed to parse /proc/cpuinfo!')
+        warning('failed to parse /proc/cpuinfo! Assuming CPU can\'t turbo.')
+        return False
 
     flags_string = cpuinfo[flags_string_start:flags_string_end]
     flags = flags_string.split()
@@ -110,11 +118,8 @@ def can_turbo() -> bool:
 # @returns The status of the driver.
 ##
 def get_driver_status() -> DriverStatus:
-    # Before getting the status, check if intel_pstate=per_cpu_perf_limits is enabled. This makes
-    # using this plugin impossible, because needed sysfs files aren't exposed.
-    if not isfile(pstate_file('min_perf_pct')) or not isfile(pstate_file('max_perf_pct')):
-        fatal('Your kernel is configured with intel_pstate=per_cpu_perf_limits. '
-              'The intelpstate plugin doesn\'t work under these conditions!')
+    if not isdir(pstate_file('')):
+        fatal('Linux intel_pstate driver not found!')
 
     # Get status
     status = read_file(pstate_file('status'))
@@ -124,9 +129,17 @@ def get_driver_status() -> DriverStatus:
         case 'passive\n':
             return DriverStatus.PASSIVE
         case 'off\n':
-            fatal('intel_pstate driver is off!')
+            fatal('intel_pstate Linux driver is off!')
         case _:
-            fatal(f'intel_pstate reported an unknown status: "{status}"!')
+            # After reading the driver's source code, this doesn't seem to be a possibility as of
+            # now, but may be if more modes are added in the future.
+            fatal(f'intel_pstate Linux driver reported an unknown status: "{status}"!')
+
+    # Check if intel_pstate=per_cpu_perf_limits is enabled. This makes using this plugin
+    # impossible, because needed sysfs files aren't exposed.
+    if not isfile(pstate_file('min_perf_pct')) or not isfile(pstate_file('max_perf_pct')):
+        fatal('Your kernel is configured with intel_pstate=per_cpu_perf_limits. '
+              'The intelpstate plugin doesn\'t work under these conditions!')
 
 ##
 # @brief Gets the lowest performance percentage the CPU can operate in.
@@ -148,7 +161,7 @@ def get_lowest_performance_percent() -> int:
     try:
         return int(minimum_pct)
     except:
-        fatal('intelpstate can\'t convert sysfs value to integer!')
+        fatal('can\'t convert sysfs value to integer!')
 
 ##
 # @brief Gets the set of options that must be present on the configuration.
@@ -179,11 +192,11 @@ def validate_config_keys(config: dict[str, any], status: DriverStatus, turbo: bo
     if config_options != needed_options:
         unknown = config_options.difference(needed_options)
         for option in unknown:
-            warning(f'intelpstate unknown option: {option}')
+            warning(f'unknown option: {option}')
 
         missing = needed_options.difference(config_options)
         for option in missing:
-            warning(f'intelpstate missing option: {option}')
+            warning(f'missing option: {option}')
 
         fatal('incorrect options for intelpstate!')
 
@@ -198,7 +211,7 @@ def interpret_percentage(variable: str, pct: any) -> int:
     if type(pct) == int and 0 <= pct and pct <= 100:
         return pct
     else:
-        fatal(f'invalid intelpstate value {variable}. Must be an integer from 0 to 100!')
+        fatal(f'invalid config value for {variable}. Must be an integer from 0 to 100!')
 
 ##
 # @brief Interprets any config value that's supposed to be a boolean.
@@ -211,7 +224,7 @@ def interpret_boolean(variable: str, value: any) -> bool:
     if type(value) == bool:
         return value
     else:
-        fatal(f'invalid intelpstate value for {variable}. Must be a boolean!')
+        fatal(f'invalid config value for {variable}. Must be a boolean!')
 
 ##
 # @brief Validates a configuration and, in the process, generates a
@@ -219,7 +232,7 @@ def interpret_boolean(variable: str, value: any) -> bool:
 ##
 def generate_config(input_config: any) -> PstateConfig:
     if type(input_config) != dict:
-        fatal('configuration of the intelpstate plugin must be a TOML table!')
+        fatal('configuration must be a TOML table!')
 
     status = get_driver_status()
     turbo_support = can_turbo()
@@ -228,7 +241,7 @@ def generate_config(input_config: any) -> PstateConfig:
     min_pct = interpret_percentage('min-percentage', input_config['min-percentage'])
     max_pct = interpret_percentage('min-percentage', input_config['max-percentage'])
     if min_pct > max_pct:
-        fatal('intelpstate\'s min-percentage can\'t be larger than max-percentage!')
+        fatal('min-percentage can\'t be larger than max-percentage!')
 
     turbo = interpret_boolean('turbo', input_config['turbo']) if turbo_support else None
     energy_efficient = None
@@ -268,9 +281,9 @@ def apply_percentages(min: int, max: int) -> ():
     achieved_max = read_file(max_file)[:-1]
 
     if achieved_min != str(min):
-        warning(f'intelpstate failed to apply min-percentage: clamped to {achieved_min}!')
+        warning(f'failed to apply min-percentage: clamped to {achieved_min}!')
     if achieved_max != str(max):
-        warning(f'intelpstate failed to apply max-percentage: clamped to {achieved_max}!')
+        warning(f'failed to apply max-percentage: clamped to {achieved_max}!')
 
 ##
 # @brief Applies boolean values to the intel_pstate driver.

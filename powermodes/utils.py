@@ -18,37 +18,65 @@
 ##
 # @file utils.py
 # @package powermodes.utils
-# @brief Utilities for powermodes
+# @brief Utilities for powermodes.
 ##
 
 from sys import exit, stderr
 
 ##
-# @brief Prints a message to stderr and exits the program with code 1.
-# @details The message will have the folowing format: `"error: [your message]"`. If `stderr` is a
-#          terminal, this will be printed in red.
+# @brief The plugin currently running.
+# @details Used to format plugin's error and warning messages. When powermodes itself is running,
+#          this must be set to `None`.
+##
+__current_plugin: str = None
+
+##
+# @brief Sets the currently running plugin.
+# @details Used to add this information to errors and warnings.
+# @param name Name of the plugin. Set to `None` if powermodes is running.
+##
+def set_running_plugin(name: str) -> ():
+    global __current_plugin
+    __current_plugin = name
+
+##
+# @brief Helper function for [fatal](@ref powermodes.utils.fatal) and
+#        [warning](@ref powermodes.utils.warning).
+# @param msg   Message to be printed.
+# @param name  Name of the message (`fatal` / `warning`).
+# @param color ANSI escape code for the message color (only used if `stderr` is a terminal).
+##
+def __fatal_warning_helper(msg: str, name: str, color: str):
+    if __current_plugin:
+        print_str = __current_plugin + ' ' + name + ': '
+    else:
+        print_str = name + ': '
+
+    if stderr.isatty():
+        print_str = color + print_str + msg + '\033[39m'
+    else:
+        print_str += msg
+
+    print(print_str, file=stderr)
+
+##
+# @brief Prints an error message to stderr and exits the program with code 1.
+# @details If called from a plugin, that plugin will be identified. If `stderr` is a terminal, the
+#          message will be printed in red.
 # @param msg Message to be printed.
 ##
 def fatal(msg: any) -> ():
-    print_str = f'fatal: {msg}'
-    if stderr.isatty():
-        print_str = f'\033[91m{print_str}\033[39m'
-
-    print(print_str, file=stderr)
+    __fatal_warning_helper(msg, 'fatal', '\033[91m')
     exit(1)
 
 ##
 # @brief Prints a warning message to stderr.
-# @details The message will have the folowing format: `"warning: [your message]"`. If `stderr` is a
-#          terminal, this will be printed in yellow.
+# @details If called from a plugin, that plugin will be identified. If `stderr` is a terminal, the
+#          message will be printed in yellow.
 # @param msg Message to be printed.
 ##
 def warning(msg: any) -> ():
-    print_str = f'warning: {msg}'
-    if stderr.isatty():
-        print_str = f'\033[93m{print_str}\033[39m'
-
-    print(print_str, file=stderr)
+    __fatal_warning_helper(msg, 'warning', '\033[93m')
 
 ##
 # @brief Gets an integer input from the user within a range.

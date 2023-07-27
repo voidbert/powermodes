@@ -81,7 +81,13 @@ def prepare_module_imports():
     from sys import path
     path.insert(0, dirname(dirname(__file__)))
 
+def config_utils_py():
+    from utils import set_running_plugin
+    from pathlib import Path
+    set_running_plugin(Path(__file__).stem)
+
 prepare_module_imports()
+config_utils_py()
 
 {source}
 '''
