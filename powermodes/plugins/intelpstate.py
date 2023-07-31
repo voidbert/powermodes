@@ -18,7 +18,7 @@
 ##
 # @file intelpstate.py
 # @package powermodes.plugins.intelpstate
-# @brief Manage pstates on Intel processors
+# @brief Manage pstates on Intel processors.
 ##
 
 from dataclasses import dataclass
@@ -26,7 +26,7 @@ from enum import Enum
 from os.path import join, isfile, isdir
 from re import search
 
-from utils import fatal, warning, read_file, write_file, input_int_range, input_yesno
+from ..utils import fatal, warning, read_file, write_file, input_int_range, input_yesno
 
 ##
 # @brief Generates the file path for a file in the intel_pstate directory.

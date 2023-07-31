@@ -82,7 +82,10 @@ $ doxygen
 
 #### Development of new plugins
 
-Modules must define two methods:
+Plugins are Python scripts in [`powermodes/plugins`](powermodes/plugins). In order to be correctly
+imported, their file names must have the format `[identifier].py`, so only letters, numbers
+(not in the beginning) and underscores are accepted. Plugins must also define the following
+methods:
 
 ```python
 def configure(config: any) -> ():
@@ -92,17 +95,16 @@ def interact() -> ():
 ```
 
 `configure` is called to configure the module, either from the configuration file or from
-command-line arguments. The object is the one provided after `--plugin-args` or in the chosen mode
-in configuration file. Read about how `tomllib`
-[converts from TOML to Python objects](https://docs.python.org/3/library/tomllib.html#conversion-table).
+command-line arguments. The `config` object may be the one provided after `--plugin-args`, or
+present in the chosen mode from the configuration file (read about how `tomllib`
+[converts from TOML to Python objects](https://docs.python.org/3/library/tomllib.html#conversion-table)).
 The `interact` method is called to trigger the user-interaction mode.
 
-Some code is injected before yours to allow you to import modules from `powermodes`. Access them
-without any relative notation, as you were in the `powermodes` directory. For example:
+You can import modules from `powermodes` using relative notation. For example:
 
 ```python
-from utils import fatal
+from ..utils import fatal
 ```
 
-Keep in mind that plugins run with root permissions, so be careful!
+Keep in mind that **plugins run with root permissions**, so be careful!
 

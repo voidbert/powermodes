@@ -24,11 +24,12 @@
 from os import listdir
 from os.path import dirname, realpath, isfile, join
 from pathlib import Path
+from textwrap import dedent
 
-from importlib.util import spec_from_file_location, module_from_spec
+from importlib import import_module
 from types import ModuleType
 
-from .utils import fatal
+from .utils import fatal, set_running_plugin
 
 ##
 # @brief The directory that contains the plugins.
@@ -72,29 +73,7 @@ def __load_plugin(name: str) -> ModuleType:
 
     # Load module
     try:
-        spec = spec_from_file_location(name, path)
-        source = spec.loader.get_source(name)
-
-        source = f'''
-def prepare_module_imports():
-    from os.path import dirname
-    from sys import path
-    path.insert(0, dirname(dirname(__file__)))
-
-def config_utils_py():
-    from utils import set_running_plugin
-    from pathlib import Path
-    set_running_plugin(Path(__file__).stem)
-
-prepare_module_imports()
-config_utils_py()
-
-{source}
-'''
-        module = module_from_spec(spec)
-        codeobj = compile(source, module.__spec__.origin, 'exec')
-        exec(codeobj, module.__dict__)
-
+        module = import_module('powermodes.plugins.' + name)
         return module
     except Exception as e:
         print(e)
@@ -118,7 +97,9 @@ def plugin_interact(name: str) -> ():
     except:
         fatal(f'module {name} doesn\'t support interaction')
 
+    set_running_plugin(name)
     interact()
+    set_running_plugin(None)
 
 ##
 # @brief Loads a plugin and configures it.
@@ -138,5 +119,7 @@ def plugin_configure(name: str, config: any) -> ():
     except:
         fatal(f'module {name} doesn\'t support configuration')
 
+    set_running_plugin(name)
     configure(config)
+    set_running_plugin(None)
 
