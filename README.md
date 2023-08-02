@@ -1,8 +1,8 @@
 # powermodes
 
-A laptop power consumption manager written in *pure* Python and licensed under the
-[Apache License](https://www.apache.org/licenses/LICENSE-2.0). It's easily configurable and even
-expandable with new modules!
+A laptop power consumption manager for Linux, written in *pure* Python and licensed under the
+[Apache License](https://www.apache.org/licenses/LICENSE-2.0). It's easily configurable and
+even expandable with new plugins!
 
 ### Installation
 
@@ -10,7 +10,7 @@ Clone the repo and install the package:
 
 ```bash
 $ git clone https://github.com/voidbert/powermodes.git
-$ pip install .
+$ sudo pip install .
 ```
 
 Now, the `powermodes` command should be installed.
@@ -27,15 +27,29 @@ options:
                         specify path to configuration file
   -p PLUGIN, --plugin PLUGIN
                         configure installed PLUGIN
-  --plugin-args PLUGIN_ARGS
-                        arguments for PLUGIN (instead of interactive config)
+  --plugin-config PLUGIN_CONFIG
+                        configuration for PLUGIN (instead of interactive)
   --list-plugins        list installed plugins
   -m MODE, --mode MODE  apply power MODE
   --list-modes          list power modes
 ```
 
-If nothing / only CONFIG is specified, the interactive mode will be enabled. All options related
-to power modes require a configuration file.
+If nothing / only CONFIG is specified, the interactive mode will be enabled. `-m` / `--mode` and
+`--list-modes` require a configuration file. Lastly, the option after the command-line option
+`--plugin-config` must be a TOML value, i.e, something you'd put after the `=` sign:
+
+```bash
+$ powermodes -p exampleplugin --plugin-args '{ option1 = 20, option2 = 100 }'
+```
+
+Here are some other examples:
+
+```bash
+# powermodes -c config.toml                # full interactive mode
+# powermodes                               # choose what plugins to interactively configure
+# powermodes -p intelpstate                # interactively configure intelpstate plugin
+# powermodes -c config.toml -m performance # enable performance mode defined in the config.toml
+```
 
 ### Configuration
 
@@ -61,14 +75,10 @@ to power modes require a configuration file.
     pluginC = { option1 = 20, option2 = 100 } # Inline table example
 ```
 
-The option after the command-line option `plugin-args` must be a TOML value, i.e, something you'd
-put after the `=` sign.
-
-```bash
-$ powermodes -p pluginC --plugin-args '{ option1 = 20, option2 = 100 }'
-```
-
 #### Configuration of included plugins
+
+Each plugin is configured differently. Here is the configuration documentation for the included
+plugins:
 
 TODO
 

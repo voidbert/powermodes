@@ -35,8 +35,9 @@ def load_config(path: str) -> dict[str, any]:
     try:
         with open(path, 'rb') as file:
             return tomllib.load(file)
+    except tomllib.TOMLDecodeError as e:
+        fatal(f'failed to parse config from "{path}! Here\'s the message:\n{str(e)}')
     except Exception as e:
-        fatal(e)
         fatal(f'failed to load config from "{path}"!')
 
 ##

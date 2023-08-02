@@ -60,6 +60,15 @@ def __fatal_warning_helper(msg: str, name: str, color: str):
     print(print_str, file=stderr)
 
 ##
+# @brief Prints an error message to stderr.
+# @details If called from a plugin, that plugin will be identified. If `stderr` is a terminal, the
+#          message will be printed in red.
+# @param msg Message to be printed.
+##
+def error(msg: any) -> ():
+    __fatal_warning_helper(msg, 'error', '\033[91m')
+
+##
 # @brief Prints an error message to stderr and exits the program with code 1.
 # @details If called from a plugin, that plugin will be identified. If `stderr` is a terminal, the
 #          message will be printed in red.

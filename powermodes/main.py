@@ -58,7 +58,7 @@ class ArgumentsActionType(Enum):
 #            - `list_modes : bool`:   if the user wants to list power modes;
 #
 #            - `plugin : str`:        plugin to be configured;
-#            - `plugin_args : str`:   arguments for the plugin to be configured;
+#            - `plugin_config : str`: arguments for the plugin to be configured;
 #            - `list_plugins : bool`: if the user wants to list installed plugins.
 ##
 def parse_arguments() -> Namespace:
@@ -77,7 +77,7 @@ def parse_arguments() -> Namespace:
     parser.add_argument('-c', '--config', help='specify path to configuration file')
 
     parser.add_argument('-p', '--plugin', help='configure installed PLUGIN')
-    parser.add_argument('--plugin-args',
+    parser.add_argument('--plugin-config',
                         help='arguments for PLUGIN (instead of interactive config)')
     parser.add_argument('--list-plugins', action='store_true', help='list installed plugins')
 
@@ -118,7 +118,7 @@ def analyze_arguments(args: Namespace) -> ArgumentsActionType:
             action_type = ArgumentsActionType.INTERACTIVE_MODE
 
     elif action_type == ArgumentsActionType.PLUGIN_INTERACTIVE_MODE and \
-            args.plugin_args is not None:
+            args.plugin_config is not None:
         action_type = ArgumentsActionType.CONFIG_PLUGIN_ARGS
 
     # Configuration requirement
@@ -130,10 +130,10 @@ def analyze_arguments(args: Namespace) -> ArgumentsActionType:
     if args.config is not None and action_type in [ ArgumentsActionType.CONFIG_PLUGIN_ARGS,
                                                     ArgumentsActionType.LIST_PLUGINS,
                                                     ArgumentsActionType.PLUGIN_INTERACTIVE_MODE ]:
-        warning('unnecessary config file specified!')
+        warning('unnecessary config file (-c / --config) specified!')
 
-    if args.plugin_args is not None and action_type != ArgumentsActionType.CONFIG_PLUGIN_ARGS:
-        warning('unnecessary plugin args specified!')
+    if args.plugin_config is not None and action_type != ArgumentsActionType.CONFIG_PLUGIN_ARGS:
+        warning('unnecessary --plugin-config specified!')
 
     return action_type
 
@@ -156,7 +156,7 @@ def main() -> ():
         assert_root()
 
     if action == ArgumentsActionType.CONFIG_PLUGIN_ARGS:
-        plugin_config = load_args_config(args.plugin_args)
+        plugin_config = load_args_config(args.plugin_config)
         plugin_configure(args.plugin, plugin_config)
 
     elif action == ArgumentsActionType.LIST_PLUGINS:
