@@ -21,9 +21,28 @@
 # @brief Entry point to the program.
 ##
 
+from .arguments import ArgumentException, VersionException, Action, parse_arguments, \
+    get_action, get_help_message, get_version_string
+
 ##
 # @brief The entry point to powermodes.
 ##
 def main() -> ():
-    print('Hello, world!')
+    try:
+        args = parse_arguments()
+        action = get_action(args)
+    except ArgumentException as err:
+        print(str(err))
+        exit(1)
+
+    match action:
+        case Action.SHOW_HELP:
+            print(get_help_message())
+
+        case Action.SHOW_VERSION:
+            try:
+                print(get_version_string())
+            except VersionException as err:
+                print(str(err))
+                exit(1)
 
