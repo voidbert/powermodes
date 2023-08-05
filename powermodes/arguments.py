@@ -21,11 +21,11 @@
 # @brief Parsing and verification of command-line arguments.
 ##
 
-from __future__ import annotations
 from argparse import ArgumentParser, Namespace
 from enum import Enum
 from importlib.metadata import version
 from sys import argv
+from textwrap import dedent
 
 ##
 # @brief Type of exception raised when a error happens while parsing arguments.
@@ -48,29 +48,15 @@ class __CustomParser(ArgumentParser):
 
 ##
 # @brief Action triggered by command-line arguments.
-# @details Examples include showing the program's version, interactively configuring a plugin, ...
+# @details Examples include showing the program's version, interactively choosing a power mode, ...
 ##
 class Action(Enum):
-    SHOW_HELP = 0    # @brief Show powermodes' help message
-    SHOW_VERSION = 1 # @brief Show powermodes' version
-
-    ##
-    # @brief Creates an [Action](@ref powermodes.arguments.Action) from a command-line argument
-    #        key.
-    # @brief key Key from the return value of `parse_arguments`, when converted to a dictionary
-    #            using built-in `vars`.
-    # @returns An [Action](@ref powermodes.arguments.Action). Returns `None` if @p key isn't
-    #          recognized.
-    ##
-    @staticmethod
-    def from_key(key: str) -> Action | NoneType:
-        match key:
-            case 'help': return Action.SHOW_HELP
-            case 'version': return Action.SHOW_VERSION
+    SHOW_HELP = 0    ##< @brief Show powermodes' help message
+    SHOW_VERSION = 1 ##< @brief Show powermodes' version
 
     ##
     # @brief Gets the command-line options associated with the current action.
-    # @details
+    # @details Used for the error message when multiple actions are specified.
     # #### Example
     # ```
     # >>> Action.SHOW_HELP.to_key()
@@ -80,7 +66,7 @@ class Action(Enum):
     def to_key(self) -> list[str]:
         match self:
             case Action.SHOW_HELP: return [ '-h', '--help' ]
-            case Action.SHOW_VERSION: return [ '-v', '--version' ]
+            case Action.SHOW_VERSION: return [ '--version' ]
 
 ##
 # @brief Creates an `ArgumentParser` for powermode's arguments.
@@ -93,8 +79,10 @@ def __create_parser() -> ArgumentParser:
                             allow_abbrev=False
                            )
 
-    parser.add_argument('-h', '--help', action='store_true')
-    parser.add_argument('-v', '--version', action='store_true')
+    parser.add_argument('-h', '--help', dest='actions', action='append_const',
+        const=Action.SHOW_HELP)
+    parser.add_argument('--version', dest='actions', action='append_const',
+        const=Action.SHOW_VERSION)
 
     return parser
 
@@ -105,68 +93,54 @@ def __create_parser() -> ArgumentParser:
 # @param args Command-line arguments to parse. Defaults to `sys.argv`.
 #             Note that, when providing a custom list of arguments, the first one will be excluded
 #             (considered to be the name of the program).
-# @returns A `argparse.Namespace`.
+# @returns A `argparse.Namespace` containing the following variables:
+#           - `action: list[Action]` - List of [Action](@ref powermodes.arguments.Action)s the user
+#                                      wants to perform.
 ##
 def parse_arguments(args: list[str] = argv) -> Namespace:
     parser = __create_parser()
     return parser.parse_args(args[1:])
 
 ##
-# @brief Gets the list of [Action](@ref powermodes.arguments.Action)s from parsed command-line
-#        arguments.
-# @param parsed_args Parsed (from [parse_argument](@ref powermodes.arguments.parse_arguments))
-#                    command-line arguments.
-# @returns Lists of actions the user wants to perform.
-##
-def __get_actions(parsed_args: Namespace) -> list[Action]:
-    args_dict = vars(parsed_args)
-    actions = []
-
-    for key, value in args_dict.items():
-        action: Action = Action.from_key(key)
-        if action is not None and value == True:
-            actions.append(action)
-
-    if len(actions) == 0:
-        actions = [ Action.SHOW_HELP ]
-
-    return actions
-
-##
-# @brief Gets the [Action](@ref powermodes.arguments.Action) from parsed command-line arguments.
+# @brief Gets the [Action](@ref powermodes.arguments.Action) the user wants to perform from parsed
+#        command-line arguments.
 # @details Raises an [ArgumentException](@ref powermodes.arguments.ArgumentException) if the user
 #          specifies multiple actions.
-# @param parsed_args Parsed (from [parse_argument](@ref powermodes.arguments.parse_arguments))
+# @param parsed_args Parsed (from [parse_arguments](@ref powermodes.arguments.parse_arguments))
 #                    command-line arguments.
-# @returns The [Action](@ref powermodes.arguments.Action) the user want to perform.
+# @returns The [Action](@ref powermodes.arguments.Action) the user wants to perform.
 ##
 def get_action(parsed_args: Namespace) -> Action:
-    actions = __get_actions(parsed_args)
-    if len(actions) == 1:
-        return actions[0]
-    else:
-        # Used for error message formatting. Works like Haskell's Data.List.intercalate.
-        def intercalate(strings: list[str], separator: str):
-            res = ''
-            for s in strings:
-                res += s + separator
-            return res[: - len(separator)]
+    if parsed_args.actions is None:
+        return Action.SHOW_HELP
 
-        options = list(map(Action.to_key, actions))
-        options_strings = map(lambda opts: intercalate(opts, ' / '), options)
-        raise ArgumentException('Multiple actions specified in command-line arguments:\n' + \
-                                intercalate(options_strings, '\n'))
+    match len(parsed_args.actions):
+        case 1:
+            return parsed_args.actions[0]
+        case _:
+            options = map(Action.to_key, parsed_args.actions)
+            options_strings = map(lambda opts: ' / '.join(opts), options)
+            raise ArgumentException('Multiple actions specified in command-line arguments:\n' + \
+                                    '\n'.join(options_strings))
 
 ##
 # @brief Gets the help message to be shown to the user.
+# @returns A string of the help message.
 ##
 def get_help_message() -> str:
-    parser = __create_parser()
-    return parser.format_help()
+    # Custom help message, due to lack of control from argparse
+    return dedent('''
+                     usage: powermodes [options]
+
+                     options:
+                       -h, --help                 show this help message
+                       --version                  show powermode\'s version
+                  '''[1:-1])
 
 ##
 # @brief Gets the version of powermodes.
 # @details May throw a [VersionException](@ref powermodes.arguments.VersionException).
+# @returns A string of powermodes' version.
 ##
 def get_version_string() -> str:
     try:

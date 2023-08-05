@@ -27,7 +27,7 @@ from .arguments import ArgumentException, VersionException, Action, parse_argume
 ##
 # @brief The entry point to powermodes.
 ##
-def main() -> ():
+def main() -> None:
     try:
         args = parse_arguments()
         action = get_action(args)
