@@ -21,28 +21,27 @@
 # @brief Entry point to the program.
 ##
 
-from .arguments import ArgumentException, VersionException, Action, parse_arguments, \
-    get_action, get_help_message, get_version_string
+from sys import exit
+
+from .arguments import Action, parse_arguments, validate_arguments, get_help_message, \
+    get_version_string
+from .error import handle_error
 
 ##
 # @brief The entry point to powermodes.
 ##
 def main() -> None:
-    try:
-        args = parse_arguments()
-        action = get_action(args)
-    except ArgumentException as err:
-        print(str(err))
-        exit(1)
+    parsed_args = handle_error(parse_arguments())
+    print(parsed_args)
+    args = handle_error(validate_arguments(parsed_args))
+    print(args)
 
-    match action:
+    match args.action:
         case Action.SHOW_HELP:
             print(get_help_message())
 
         case Action.SHOW_VERSION:
-            try:
-                print(get_version_string())
-            except VersionException as err:
-                print(str(err))
-                exit(1)
+            print(handle_error(get_version_string()))
 
+        case _:
+            raise NotImplementedError('I\'m not that fast of a developer!')
