@@ -17,9 +17,5 @@ Now, the `powermodes` command should be installed.
 
 ### Development
 
-Project documentation can be generated with:
-
-```bash
-$ doxygen
-```
-
+If you'd like to develop a plugin, or contribute to the `powermodes` application, make sure to
+check out our [development documentation](Development.md).

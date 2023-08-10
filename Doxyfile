@@ -1,4 +1,4 @@
-INPUT                  = powermodes README.md
+INPUT                  = powermodes README.md Development.md
 RECURSIVE              = YES
 FILE_PATTERNS          = *.py
 
