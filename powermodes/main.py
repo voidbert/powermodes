@@ -21,8 +21,6 @@
 # @brief Entry point to the program.
 ##
 
-from sys import exit
-
 from .arguments import Action, parse_arguments, validate_arguments, get_help_message, \
     get_version_string
 from .error import handle_error

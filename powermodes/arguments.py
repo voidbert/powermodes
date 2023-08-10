@@ -21,22 +21,30 @@
 # @brief Parsing and verification of command-line arguments.
 ##
 
+from __future__ import annotations
 from argparse import ArgumentParser, Namespace
 from dataclasses import dataclass
 from enum import Enum
-from importlib.metadata import version
+from importlib.metadata import version, PackageNotFoundError
 from sys import argv
 from textwrap import dedent
-from typing import Union
+from typing import Union, NoReturn
 
 from .error import Error, ErrorType, handle_error_append
 
 ##
+# @brief The type of exception raised by
+#        [_CustomParser](@ref powermodes.arguments._CustomParser).
+##
+class _ArgumentError(Exception):
+    pass
+
+##
 # @brief Custom `argparse.ArgumentParser` implementation to avoid printing errors.
 ##
-class __CustomParser(ArgumentParser):
-    def error(self, message):
-        raise Exception(message)
+class _CustomParser(ArgumentParser):
+    def error(self: _CustomParser, message: str) -> NoReturn:
+        raise _ArgumentError(message)
 
 ##
 # @brief Action triggered by command-line arguments.
@@ -73,20 +81,24 @@ class Action(Enum):
 @dataclass
 class Arguments:
     action: Action = Action.SHOW_HELP ##< @brief Action to be executed.
-    config: str | None = None         ##< @brief Path to configuration file.
-    mode: str | None = None           ##< @brief Power mode to be applied (for
-                                      #          [Action.APPLY_MODE](@ref powermodes.arguments.Action.APPLY_MODE)).
+    config: Union[str, None] = None  ##< @brief Path to configuration file.
+
+    ##
+    # @brief Power mode to be applied (for
+    #        [Action.APPLY_MODE](@ref powermodes.arguments.Action.APPLY_MODE)).
+    ##
+    mode: Union[str, None] = None
 
 ##
 # @brief Creates an `ArgumentParser` for powermode's arguments.
 # @returns An `ArgumentParser`.
 ##
 def __create_parser() -> ArgumentParser:
-    parser = __CustomParser(prog='powermodes',
-                            description='Linux power consumption manager',
-                            add_help=False,
-                            allow_abbrev=False
-                           )
+    parser = _CustomParser(prog='powermodes',
+                           description='Linux power consumption manager',
+                           add_help=False,
+                           allow_abbrev=False
+                          )
 
     parser.add_argument('-h', '--help', dest='actions', action='append_const',
         const=Action.SHOW_HELP)
@@ -110,20 +122,25 @@ def __create_parser() -> ArgumentParser:
 # @returns
 # A `argparse.Namespace` that contains the following variables:
 #
-#  - `action: list[Action] | None` - List of [Action](@ref powermodes.arguments.Action)s the user
-#                                    wants to perform (excluding setting a mode).
-#  - `config: str | None`          - Path to configuration file.
-#  - `mode: str | None`            - Mode to be applied.
+#  - `action: Union[list[Action], None]` - List of [Action](@ref powermodes.arguments.Action)s the
+#                                          user wants to perform (excluding setting a mode).
+#  - `config: Union[str, None]`          - Path to configuration file.
+#  - `mode: Union[str, None]`            - Mode to be applied.
 #
 #  In case of error, the `Namespace` will be `None`, and the [Error](@ref powermodes.error.Error)
 #  will be non-`None`.
 ##
-def parse_arguments(args: list[str] = argv) -> tuple[Union[Namespace, None], Union[Error, None]]:
+def parse_arguments(args: Union[list[str], None] = None) -> \
+    tuple[Union[Namespace, None], Union[Error, None]]:
+
     try:
+        if args is None:
+            args = argv
+
         parser = __create_parser()
         return (parser.parse_args(args[1:]), None)
-    except Exception as e:
-        return (None, Error(ErrorType.ERROR, str(e)))
+    except _ArgumentError as ex:
+        return (None, Error(ErrorType.ERROR, str(ex)))
 
 ##
 # @brief Gets the [Action](@ref powermodes.arguments.Action) the user wants to perform, from parsed
@@ -157,7 +174,7 @@ def __get_action(parsed_args: Namespace) -> tuple[Union[Action, None], Union[Err
 
             # Error if multiple actions are specified
             options = map(Action.to_key, unique_actions)
-            options_strings = map(lambda opts: ' / '.join(opts), options)
+            options_strings = map(' / '.join, options)
             options_strings_lines = '\n'.join(options_strings)
             return (None, Error(ErrorType.ERROR, \
                 'Multiple actions specified in command-line arguments:\n' + options_strings_lines))
@@ -169,7 +186,7 @@ def __get_action(parsed_args: Namespace) -> tuple[Union[Action, None], Union[Err
 #                    command-line arguments.
 # @returns The path to the configuration file, if specified. Errors and warnings can be returned.
 ##
-def __get_config(action: Action | None, parsed_args: Namespace) -> \
+def __get_config(action: Union[Action, None], parsed_args: Namespace) -> \
     tuple[Union[Namespace, None], list[Error]]:
 
     errors = []
@@ -177,18 +194,18 @@ def __get_config(action: Action | None, parsed_args: Namespace) -> \
 
     if not parsed_args.config:
         if action not in [ None, Action.SHOW_HELP, Action.SHOW_VERSION ]:
-            errors.append(Error(ErrorType.ERROR, f'No config file specified.'))
+            errors.append(Error(ErrorType.ERROR, 'No config file specified.'))
     else:
         match len(parsed_args.config):
             case 1:
                 config = parsed_args.config[0]
             case _:
-                errors.append(Error(ErrorType.WARNING, f'Multiple config files specified. ' \
+                errors.append(Error(ErrorType.WARNING, 'Multiple config files specified. ' \
                     'Choosing the last one.'))
                 config = parsed_args.config[-1]
 
     if config is not None and action in [ Action.SHOW_HELP, Action.SHOW_VERSION ]:
-        errors.append(Error(ErrorType.WARNING, f'Unnecessarily specified config file.'))
+        errors.append(Error(ErrorType.WARNING, 'Unnecessarily specified config file.'))
 
     return (config, errors)
 
@@ -198,13 +215,13 @@ def __get_config(action: Action | None, parsed_args: Namespace) -> \
 #                    command-line arguments.
 # @returns The power mode to be applied, if specified. A warning may accompany it.
 ##
-def __get_mode(parsed_args: Namespace) -> tuple[Union[str, None], Union[Error | None]]:
+def __get_mode(parsed_args: Namespace) -> tuple[Union[str, None], Union[Error, None]]:
     if parsed_args.mode is None:
         return (None, None)
     elif len(parsed_args.mode) == 1:
         return (parsed_args.mode[0], None)
     else:
-        error = Error(ErrorType.WARNING, f'Multiple power modes specified. ' \
+        error = Error(ErrorType.WARNING, 'Multiple power modes specified. ' \
                       'Choosing the last one.')
         return (parsed_args.mode[-1], error)
 
@@ -215,12 +232,12 @@ def __get_mode(parsed_args: Namespace) -> tuple[Union[str, None], Union[Error | 
 # @returns An object containing argument information.
 ##
 def validate_arguments(parsed_args: Namespace) -> tuple[Union[Arguments, None], list[Error]]:
-    errors = []
+    errors: list[Error] = []
     action = handle_error_append(errors, __get_action(parsed_args))
     config = handle_error_append(errors, __get_config(action, parsed_args))
     mode   = handle_error_append(errors, __get_mode(parsed_args))
 
-    if action == None:
+    if action is None:
         return (None, errors)
     else:
         return (Arguments(action, config, mode), errors)
@@ -259,5 +276,5 @@ def get_help_message() -> str:
 def get_version_string() -> tuple[Union[str, None], Union[Error, None]]:
     try:
         return ('powermodes ' + version('powermodes'), None)
-    except:
+    except PackageNotFoundError:
         return (None, Error(ErrorType.ERROR, 'Failed to get powermodes\' version.'))
