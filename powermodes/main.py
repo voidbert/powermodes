@@ -24,22 +24,31 @@
 from .arguments import Action, parse_arguments, validate_arguments, get_help_message, \
     get_version_string
 from .error import handle_error
+from .plugin import load_plugins
 
 ##
 # @brief The entry point to powermodes.
 ##
 def main() -> None:
     parsed_args = handle_error(parse_arguments())
-    print(parsed_args)
     args = handle_error(validate_arguments(parsed_args))
-    print(args)
 
     match args.action:
         case Action.SHOW_HELP:
             print(get_help_message())
 
         case Action.SHOW_VERSION:
-            print(handle_error(get_version_string()))
+            # Non-fatal errors should be raised, so the program continues
+            version = handle_error(get_version_string())
+            plugins = handle_error(load_plugins())
+
+            if version is not None:
+                print(version)
+
+            if len(plugins) != 0:
+                print('Versions of installed plugins:')
+                for plugin in plugins:
+                    print(f'{plugin.name} {plugin.version}')
 
         case _:
             raise NotImplementedError('I\'m not that fast of a developer!')

@@ -277,4 +277,4 @@ def get_version_string() -> tuple[Union[str, None], Union[Error, None]]:
     try:
         return ('powermodes ' + version('powermodes'), None)
     except PackageNotFoundError:
-        return (None, Error(ErrorType.ERROR, 'Failed to get powermodes\' version.'))
+        return (None, Error(ErrorType.WARNING, 'Failed to get powermodes\' version.'))
