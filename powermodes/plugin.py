@@ -105,9 +105,9 @@ def load_plugin(module_name: str) -> tuple[Union[Plugin, None], list[Error]]:
 
     errors = []
     if not hasattr(module, 'NAME') or not isinstance(module.NAME, str):
-        errors.append(Error(ErrorType.WARNING, 'Plugin in "{module_name}.py" reported no NAME ' \
-                                               '/ non-string NAME. Defaulting to ' \
-                                              f'"{module_name}".'))
+        errors.append(Error(ErrorType.WARNING, f'Plugin in "{module_name}.py" reported no NAME ' \
+                                                '/ non-string NAME. Defaulting to ' \
+                                               f'"{module_name}".'))
 
         module.NAME = module_name # type: ignore
 
