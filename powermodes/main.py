@@ -21,9 +21,14 @@
 # @brief Entry point to the program.
 ##
 
+
+from pprint import pprint
+import sys
+
 from .arguments import Action, parse_arguments, validate_arguments, get_help_message, \
     get_version_string
-from .error import handle_error
+from .config import load_config, validate
+from .error import Error, handle_error, handle_error_append
 from .plugin import load_plugins
 
 ##
@@ -51,4 +56,22 @@ def main() -> None:
                     print(f'{plugin.name} {plugin.version}')
 
         case _:
-            raise NotImplementedError('I\'m not that fast of a developer!')
+            errors: list[Error] = []
+            config = handle_error_append(errors, load_config(args.config))
+            plugins = handle_error_append(errors, load_plugins())
+
+            handle_error((None, errors)) # Print errors
+            if config is None or plugins is None:
+                sys.exit(1)
+
+            match args.action:
+                case Action.VALIDATE:
+                    pprint(config)
+                    if not handle_error(validate(config, plugins)):
+                        pprint(config)
+                        sys.exit(1)
+
+                    pprint(config)
+
+                case _:
+                    raise NotImplementedError('I\'m not that fast of a developer!')

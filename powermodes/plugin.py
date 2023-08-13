@@ -38,17 +38,18 @@ __plugins_dir = Path(__file__).parent.joinpath('plugins')
 ##
 # @brief They type of a plugin.
 ##
-@dataclass
+@dataclass(frozen=True)
 class Plugin:
     name: str    = '' ##< @brief Name of the plugin.
     version: str = '' ##< @brief Version of the plugin.
 
     ##
     # @brief Method called to validate the configuration file.
-    # @details Takes in the whole configuration file and returns whether the configuration is
-    #          valid, along with reported errors and warnings.
+    # @details Takes in the parsed configuration file (filtered to only show configurations for the
+    #          plugin), and returns the list of validly configured powermodes, along with all
+    #          errors reported.
     ##
-    validate: Callable[[dict[str, Any]], tuple[bool, list[Error]]] = lambda _: (True, [])
+    validate: Callable[[dict[str, Any]], tuple[list[str], list[Error]]] = lambda _: ([], [])
 
     ##
     # @brief Method called to apply a configuration.
@@ -119,14 +120,14 @@ def load_plugin(module_name: str) -> tuple[Union[Plugin, None], list[Error]]:
 
     if not hasattr(module, 'validate'):
         errors.append(Error(ErrorType.WARNING, 'No validate method specified. Assuming all ' \
-                                               'config files are valid.', module.NAME))
+                                               'config files are invalid.', module.NAME))
         module.validate = lambda _: True # type: ignore
 
     elif not callable(module.validate) or len(signature(module.validate).parameters) != 1:
 
         errors.append(Error(ErrorType.WARNING, 'validate must be a method that takes in a ' \
                                                'single argument. Considering all config files ' \
-                                               'to be valid.', \
+                                               'to be invalid.', \
                             module.NAME))
 
     if not hasattr(module, 'configure'):
@@ -161,3 +162,24 @@ def load_plugins() -> tuple[Union[list[Plugin], None], list[Error]]:
             plugins.append(plug)
 
     return (plugins, errors)
+
+##
+# @brief Checks if the value returned by a plugin's `validate` method is valid.
+# @param Value returned by the `validate` method.
+# @returns Whether the value returned by a plugin's `validate` method is valid.
+##
+def valid_plugin_validate_return(obj: Any) -> bool:
+    if not isinstance(obj, tuple):
+        return False
+    if len(obj) != 2:
+        return False
+
+    if not isinstance(obj[0], list) or not isinstance(obj[1], list):
+        return False
+
+    if not all(map(lambda e: isinstance(e, str), obj[0])):
+        return False
+    if not all(map(lambda e: isinstance(e, Error), obj[1])):
+        return False
+
+    return True
