@@ -119,9 +119,9 @@ def load_plugin(module_name: str) -> tuple[Union[Plugin, None], list[Error]]:
         module.VERSION = 'unknown' # type: ignore
 
     if not hasattr(module, 'validate'):
-        errors.append(Error(ErrorType.WARNING, 'No validate method specified. Assuming all ' \
-                                               'config files are invalid.', module.NAME))
-        module.validate = lambda _: True # type: ignore
+        errors.append(Error(ErrorType.WARNING, 'No validate method specified. Ignoring this ' \
+                                               'plugin.', module.NAME))
+        return (None, errors)
 
     elif not callable(module.validate) or len(signature(module.validate).parameters) != 1:
 
