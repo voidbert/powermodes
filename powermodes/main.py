@@ -22,14 +22,53 @@
 ##
 
 
-from pprint import pprint
 import sys
+from typing import Any, Union
 
 from .arguments import Action, parse_arguments, validate_arguments, get_help_message, \
     get_version_string
 from .config import load_config, validate
 from .error import Error, handle_error, handle_error_append
-from .plugin import load_plugins
+from .plugin import Plugin, load_plugins
+
+##
+# @brief Formats the program's and plugins' versions.
+# @details Auxiliary method for [main](@ref powermodes.main.main).
+# @returns The formatted version message, along with possible warnings that may happen while
+#          getting powermodes' version or loading plugins.
+##
+def __format_version() -> tuple[str, list[Error]]:
+    errors: list[Error] = []
+    version = handle_error_append(errors, get_version_string())
+    plugins = handle_error_append(errors, load_plugins())
+
+    message = ''
+
+    if version is not None:
+        message += f'\n{version}\n'
+
+    if len(plugins) != 0:
+        message += '\nVersions of installed plugins:\n'
+        for plugin in plugins:
+            message += f'{plugin.name} {plugin.version}\n'
+
+    return (message, errors)
+
+##
+# @brief Loads a configuration file and plugins.
+# @details Auxiliary method for [main](@ref powermodes.main.main).
+# @param path Path to the configuration file.
+# @returns A tuple containing a parsed configuration (or `None`) and the list of loaded plugins
+#          (or `None`), along with errors / warnings that may have happened.
+##
+def __load_config_plugins(path: str) -> \
+    tuple[tuple[Union[dict[str, Any], None], Union[list[Plugin], None]], list[Error]]:
+
+    errors: list[Error] = []
+    config = handle_error_append(errors, load_config(path))
+    plugins = handle_error_append(errors, load_plugins())
+
+    return ((config, plugins), errors)
 
 ##
 # @brief The entry point to powermodes.
@@ -43,35 +82,18 @@ def main() -> None:
             print(get_help_message())
 
         case Action.SHOW_VERSION:
-            # Non-fatal errors should be raised, so the program continues
-            version = handle_error(get_version_string())
-            plugins = handle_error(load_plugins())
-
-            if version is not None:
-                print(version)
-
-            if len(plugins) != 0:
-                print('Versions of installed plugins:')
-                for plugin in plugins:
-                    print(f'{plugin.name} {plugin.version}')
+            print(handle_error(__format_version()))
 
         case _:
-            errors: list[Error] = []
-            config = handle_error_append(errors, load_config(args.config))
-            plugins = handle_error_append(errors, load_plugins())
-
+            (config, plugins), errors = __load_config_plugins(args.config)
             handle_error((None, errors)) # Print errors
             if config is None or plugins is None:
                 sys.exit(1)
 
             match args.action:
                 case Action.VALIDATE:
-                    pprint(config)
                     if not handle_error(validate(config, plugins)):
-                        pprint(config)
                         sys.exit(1)
-
-                    pprint(config)
 
                 case _:
                     raise NotImplementedError('I\'m not that fast of a developer!')
