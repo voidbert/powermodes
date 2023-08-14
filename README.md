@@ -66,7 +66,7 @@ Here's an example with **hypothetical plugins**:
 	pluginC = { varX = 50, varY = 100 } # inline table example
 ```
 
-As you can see, wach plugin can be configured in its own way. Here's the documentation for the
+As you can see, each plugin can be configured in its own way. Here's the documentation for the
 first-party plugins:
 
 TODO
