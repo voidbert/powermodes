@@ -124,3 +124,15 @@ def handle_error_append(lst: list[Error], \
         lst.extend(err)
 
     return obj
+
+##
+# @brief Set alls unspecified error origins in @p errors to @p origin.
+# @details Used to change the origins of errors returned by plugins before printing them.
+# @param errors List of errors to me modified.
+# @param origin Usually the plugin name, that will replace all origins of errors of unspecified
+#               origin.
+##
+def set_unspecified_origins(errors: list[Error], origin: str) -> None:
+    for err in errors:
+        if err.origin is None:
+            err.origin = origin

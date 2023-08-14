@@ -26,7 +26,7 @@ from tomllib import TOMLDecodeError, load
 from traceback import format_exception
 from typing import Any, Union
 
-from .error import Error, ErrorType, handle_error_append
+from .error import Error, ErrorType, handle_error_append, set_unspecified_origins
 from .plugin import Plugin, valid_plugin_validate_return
 
 ##
@@ -190,9 +190,9 @@ def __validate_plugins(config: dict[str, Any], plugins: set[Plugin]) -> tuple[No
         try:
             plugin_return = plugin.validate(filtered)
             if valid_plugin_validate_return(plugin_return):
-                successful = handle_error_append(errors, plugin_return)
-
-                # TODO - change error origin
+                successful, plugin_errors = plugin_return
+                set_unspecified_origins(plugin_errors, plugin.name)
+                errors.extend(plugin_errors)
 
                 __remove_plugin_references(config, plugin.name, successful)
             else:
