@@ -37,7 +37,7 @@ from .plugin import Plugin, load_plugins
 ##
 def __assert_root() -> tuple[None, Union[Error, None]]:
     return (None,
-        Error(ErrorType.ERROR, 'powermodes must be run as root!') if getuid() != 0 else None)
+         Error(ErrorType.ERROR, 'powermodes must be run as root!') if getuid() != 0 else None)
 
 ##
 # @brief Formats the program's and plugins' versions.
@@ -57,7 +57,7 @@ def __format_version() -> tuple[str, list[Error]]:
 
     if len(plugins) != 0:
         message += '\nVersions of installed plugins:\n'
-        for plugin in plugins:
+        for plugin in plugins.values():
             message += f'{plugin.name} {plugin.version}\n'
 
     return (message, errors)
@@ -66,11 +66,12 @@ def __format_version() -> tuple[str, list[Error]]:
 # @brief Loads a configuration file and plugins.
 # @details Auxiliary method for [main](@ref powermodes.main.main).
 # @param path Path to the configuration file.
-# @returns A tuple containing a parsed configuration (or `None`) and the list of loaded plugins
-#          (or `None`), along with errors / warnings that may have happened.
+# @returns A tuple containing a parsed configuration (or `None`) and the a dictionary associating
+#          plugin names to loaded plugins (or `None`), along with errors / warnings that may have
+#          happened.
 ##
 def __load_config_plugins(path: str) -> \
-    tuple[tuple[Union[dict[str, Any], None], Union[list[Plugin], None]], list[Error]]:
+    tuple[tuple[Union[dict[str, Any], None], Union[dict[str, Plugin], None]], list[Error]]:
 
     errors: list[Error] = []
     config = handle_error_append(errors, load_config(path))

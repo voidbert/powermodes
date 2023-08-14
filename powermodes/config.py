@@ -143,11 +143,11 @@ def __validate_remove_empty_dicts(config: dict[str, Any], results_from_removal: 
 # @details Auxiliary function for [validate](@ref powermodes.config.validate).
 # @param config Loaded configuration (see [load_config](@ref powermodes.config.load_config)). Will
 #               be modified.
-# @param plugins List of loaded plugins (see [load_plugins](@reg powermodes.plugins.load_plugins)).
+# @param plugins Loaded plugins (see [load_plugins](@reg powermodes.plugins.load_plugins)).
 # @returns A set of plugins used in the config file, along with errors reporting unknown plugins.
 ##
 # pylint: disable=too-many-locals
-def __validate_remove_unknown_plugins(config: dict[str, Any], plugins: list[Plugin]) \
+def __validate_remove_unknown_plugins(config: dict[str, Any], plugins: dict[str, Plugin]) \
     -> tuple[set[str], list[Error]]:
 
     errors: list[Error] = []
@@ -156,7 +156,7 @@ def __validate_remove_unknown_plugins(config: dict[str, Any], plugins: list[Plug
 
     for mode in config.keys():
         for plugin in config[mode].keys():
-            if plugin in map(lambda p: p.name, plugins):
+            if plugin in plugins:
                 known.add(plugin)
             else:
                 if plugin in unknown:
@@ -177,11 +177,13 @@ def __validate_remove_unknown_plugins(config: dict[str, Any], plugins: list[Plug
 # @details Auxiliary function for [validate](@ref powermodes.config.validate).
 # @param config Loaded configuration (see [load_config](@ref powermodes.config.load_config)). Will
 #               be modified.
-# @param plugins List of loaded plugins (see [load_plugins](@reg powermodes.plugins.load_plugins)).
+# @param plugins Plugins mentioned in the configuration file.
 # @returns All errors reported by plugins.
 ##
 # pylint: disable=too-many-locals
-def __validate_plugins(config: dict[str, Any], plugins: set[Plugin]) -> tuple[None, list[Error]]:
+def __validate_plugins(config: dict[str, Any], plugins: set[Plugin]) -> \
+    tuple[None, list[Error]]:
+
     errors: list[Error] = []
 
     # Plugin verification
@@ -217,18 +219,18 @@ def __validate_plugins(config: dict[str, Any], plugins: set[Plugin]) -> tuple[No
 ##
 # @brief Checks if a configuration file is valid. Modifies @p config to remove invalid parts.
 # @param config Loaded configuration (see [load_config](@ref powermodes.config.load_config)).
-# @param plugins List of loaded plugins (see [load_plugins](@reg powermodes.plugins.load_plugins)).
+# @param plugins Loaded plugins (see [load_plugins](@reg powermodes.plugins.load_plugins)).
 # @returns Whether the configuration file is valid or not, along with configuration warnings /
 #          errors.
 ##
-def validate(config: dict[str, Any], plugins: list[Plugin]) -> tuple[bool, list[Error]]:
+def validate(config: dict[str, Any], plugins: dict[str, Plugin]) -> tuple[bool, list[Error]]:
     errors: list[Error] = []
 
     handle_error_append(errors, __validate_remove_non_dicts(config))
     handle_error_append(errors, __validate_remove_empty_dicts(config, False))
     known_plugin_names = \
         handle_error_append(errors, __validate_remove_unknown_plugins(config, plugins))
-    known_plugins = set(filter(lambda plug: plug.name in known_plugin_names, plugins))
+    known_plugins = set(map(plugins.__getitem__, known_plugin_names))
     handle_error_append(errors, __validate_plugins(config, known_plugins))
     handle_error_append(errors, __validate_remove_empty_dicts(config, True))
 
@@ -243,11 +245,11 @@ def validate(config: dict[str, Any], plugins: list[Plugin]) -> tuple[bool, list[
 # @brief Applies a power mode from a validated configuration file.
 # @param mode Name of the mode to be applied
 # @param config Validated (see [validate](@ref powermodes.config.validate)) configuration file.
-# @param plugins List of loaded plugins (see [load_plugins](@reg powermodes.plugins.load_plugins)).
+# @param plugins Loaded plugins (see [load_plugins](@reg powermodes.plugins.load_plugins)).
 # @returns Whether the mode application was sucessful, along with reported errors.
 ##
 # pylint: disable=too-many-branches
-def apply_mode(mode: str, config: dict[str, dict[str, Any]], plugins: list[Plugin]) -> \
+def apply_mode(mode: str, config: dict[str, dict[str, Any]], plugins: dict[str, Plugin]) -> \
     tuple[bool, list[Error]]:
 
     errors: list[Error] = []
@@ -257,7 +259,7 @@ def apply_mode(mode: str, config: dict[str, dict[str, Any]], plugins: list[Plugi
 
     all_failed = True
     for plugin_name in config[mode]: # Unknown plugins should already have been removed
-        plugin = next(filter(lambda p, name=plugin_name: p.name == name, plugins)) # type: ignore
+        plugin = plugins[plugin_name]
         try:
             plugin_return = plugin.configure(config[mode][plugin_name])
             if valid_plugin_configure_return(plugin_return):

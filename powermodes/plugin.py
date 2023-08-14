@@ -40,6 +40,8 @@ __plugins_dir = Path(__file__).parent.joinpath('plugins')
 ##
 @dataclass(frozen=True)
 class Plugin:
+    file: str    = '' ##< @brief The Python file containing the plugin (excludes directory).
+
     name: str    = '' ##< @brief Name of the plugin.
     version: str = '' ##< @brief Version of the plugin.
 
@@ -82,13 +84,14 @@ def list_plugin_module_names() -> tuple[Union[list[str] | None], list[Error]]:
         if name.isidentifier():
             valid_names.append(name)
         else:
-            warnings.append(Error(ErrorType.WARNING, f'Plugin "{name}" has invalid name (must ' \
-                                                      'be an identifier). Ignoring it.'))
+            warnings.append(Error(ErrorType.WARNING, f'Plugin in "{name}.py" has an invalid ' \
+                                                      'module name (must be a Python ' \
+                                                      'identifier). Ignoring it.'))
 
     return (valid_names, warnings)
 
 ##
-# @brief Loads a plugin from its name.
+# @brief Loads a plugin from its module name.
 # @param module_name Name of the Python module of the plugin.
 # @returns The loaded [Plugin](@ref powermodes.plugin.Plugin), or `None` when an error happens.
 ##
@@ -143,23 +146,30 @@ def load_plugin(module_name: str) -> tuple[Union[Plugin, None], list[Error]]:
 
         return (None, errors)
 
-    return (Plugin(module.NAME, module.VERSION, module.validate, module.configure), errors)
+    return (Plugin(module_name + '.py',
+                   module.NAME, module.VERSION, module.validate, module.configure), errors)
 
 ##
 # @brief Loads all plugins.
-# @returns A list of [Plugin](@ref powermodes.plugin.Plugin)s. Errors and warnings are also
-#          returned.
+# @returns A dictionary where plugin names (self-reported `NAME`) are associated with
+#          [Plugin](@ref powermodes.plugin.Plugin)s. Errors and warnings are also returned.
 ##
-def load_plugins() -> tuple[Union[list[Plugin], None], list[Error]]:
-    plugin_names, errors = list_plugin_module_names()
-    if plugin_names is None:
+def load_plugins() -> tuple[Union[dict[str, Plugin], None], list[Error]]:
+    plugin_module_names, errors = list_plugin_module_names()
+    if plugin_module_names is None:
         return (None, errors)
 
-    plugins = []
-    for name in plugin_names:
+    plugins: dict[str, Plugin] = {}
+    for name in plugin_module_names:
         plug = handle_error_append(errors, load_plugin(name))
         if plug is not None:
-            plugins.append(plug)
+            if plug.name not in plugins:
+                plugins[plug.name] = plug
+            else:
+                errors.append(Error(ErrorType.WARNING, f'Plugins in "{plugins[plug.name].file}" ' \
+                                                       f'and "{plug.file}" have reported the ' \
+                                                       f'same name, "{plug.name}". Ignoring ' \
+                                                       f'"{plug.file}"'))
 
     return (plugins, errors)
 
