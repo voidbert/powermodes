@@ -22,14 +22,22 @@
 ##
 
 
+from os import getuid
 import sys
 from typing import Any, Union
 
 from .arguments import Action, parse_arguments, validate_arguments, get_help_message, \
     get_version_string
 from .config import load_config, validate, apply_mode
-from .error import Error, handle_error, handle_error_append
+from .error import Error, ErrorType, handle_error, handle_error_append
 from .plugin import Plugin, load_plugins
+
+##
+# @brief Returns an error if the user hasn't root priveleges.
+##
+def __assert_root() -> tuple[None, Union[Error, None]]:
+    return (None,
+        Error(ErrorType.ERROR, 'powermodes must be run as root!') if getuid() != 0 else None)
 
 ##
 # @brief Formats the program's and plugins' versions.
@@ -85,6 +93,8 @@ def main() -> None:
             print(handle_error(__format_version()))
 
         case _:
+            handle_error(__assert_root())
+
             (config, plugins), errors = __load_config_plugins(args.config)
             handle_error((None, errors)) # Print errors
             if config is None or plugins is None:
