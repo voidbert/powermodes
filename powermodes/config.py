@@ -27,7 +27,7 @@ from traceback import format_exception
 from typing import Any, Union
 
 from .error import Error, ErrorType, handle_error_append, set_unspecified_origins
-from .plugin import Plugin, valid_plugin_validate_return
+from .plugin import Plugin, valid_plugin_validate_return, valid_plugin_configure_return
 
 ##
 # @brief Loads a configuration file.
@@ -196,7 +196,7 @@ def __validate_plugins(config: dict[str, Any], plugins: set[Plugin]) -> tuple[No
 
                 __remove_plugin_references(config, plugin.name, successful)
             else:
-                errors.append(Error(ErrorType.WARNING, 'validate returned an invalid value: ' + \
+                errors.append(Error(ErrorType.WARNING, 'validate returned an invalid value: ' \
                                                       f'{plugin_return}. Ignoring this plugin.',
                                     plugin.name))
                 __remove_plugin_references(config, plugin.name)
@@ -234,7 +234,63 @@ def validate(config: dict[str, Any], plugins: list[Plugin]) -> tuple[bool, list[
 
     if __is_config_empty(config):
         errors.append(Error(ErrorType.ERROR, 'Empty configuration (this may be the result ' \
-                                               'of the removal of invalid config parts).'))
+                                             'of the removal of invalid config parts).'))
+        return (False, errors)
+    else:
+        return (True, errors)
+
+##
+# @brief Applies a power mode from a validated configuration file.
+# @param mode Name of the mode to be applied
+# @param config Validated (see [validate](@ref powermodes.config.validate)) configuration file.
+# @param plugins List of loaded plugins (see [load_plugins](@reg powermodes.plugins.load_plugins)).
+# @returns Whether the mode application was sucessful, along with reported errors.
+##
+# pylint: disable=too-many-branches
+def apply_mode(mode: str, config: dict[str, dict[str, Any]], plugins: list[Plugin]) -> \
+    tuple[bool, list[Error]]:
+
+    errors: list[Error] = []
+
+    if mode not in config:
+        return (False, [ Error(ErrorType.ERROR, f'Powermode {mode} not in configuration file') ])
+
+    all_failed = True
+    for plugin_name in config[mode]: # Unknown plugins should already have been removed
+        plugin = next(filter(lambda p, name=plugin_name: p.name == name, plugins)) # type: ignore
+        try:
+            plugin_return = plugin.configure(config[mode][plugin_name])
+            if valid_plugin_configure_return(plugin_return):
+                successful, plugin_errors = plugin_return
+                set_unspecified_origins(plugin_errors, plugin.name)
+                errors.extend(plugin_errors)
+
+                if not successful:
+                    errors.append(Error(ErrorType.WARNING, 'configure reported insuccess. ' \
+                                                           'You may have ended up with a ' \
+                                                           'partially configured system.', \
+                                        plugin.name))
+                else:
+                    all_failed = False
+            else:
+                errors.append(Error(ErrorType.WARNING, 'configure returned an invalid value: ' \
+                                                      f'{plugin_return}. Unable to report any ' \
+                                                       'error / warning from this plugin. You ' \
+                                                       'may have ended up with a partially ' \
+                                                       'configured system.', plugin.name))
+
+        # Needed pylint suppression because a module can throw any type of error
+        # pylint: disable=broad-exception-caught
+        except BaseException as ex:
+            exception_text = ''.join(format_exception(ex))
+            errors.append(Error(ErrorType.WARNING, f'Calling configure resulted in an ' \
+                                                    'exception. You may have ended up with a ' \
+                                                    'partially configured system. Here\'s the ' \
+                                                   f'exception:\n{exception_text}',
+                                plugin.name))
+
+    if all_failed:
+        errors.append(Error(ErrorType.ERROR, f'All plugins failed to apply mode {mode}'))
         return (False, errors)
     else:
         return (True, errors)

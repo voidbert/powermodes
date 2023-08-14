@@ -183,3 +183,24 @@ def valid_plugin_validate_return(obj: Any) -> bool:
         return False
 
     return True
+
+##
+# @brief Checks if the value returned by a plugin's `configure` method is valid.
+# @param Value returned by the `configre` method.
+# @returns Whether the value returned by a plugin's `configure` method is valid.
+##
+def valid_plugin_configure_return(obj: Any) -> bool:
+    if not isinstance(obj, tuple):
+        return False
+    if len(obj) != 2:
+        return False
+
+    if not isinstance(obj[0], bool):
+        return False
+
+    if not isinstance(obj[1], list):
+        return False
+    if not all(map(lambda e: isinstance(e, Error), obj[1])):
+        return False
+
+    return True

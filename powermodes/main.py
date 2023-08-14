@@ -27,7 +27,7 @@ from typing import Any, Union
 
 from .arguments import Action, parse_arguments, validate_arguments, get_help_message, \
     get_version_string
-from .config import load_config, validate
+from .config import load_config, validate, apply_mode
 from .error import Error, handle_error, handle_error_append
 from .plugin import Plugin, load_plugins
 
@@ -90,10 +90,16 @@ def main() -> None:
             if config is None or plugins is None:
                 sys.exit(1)
 
+            success, errors = validate(config, plugins)
+            handle_error((True if success else None, errors))
+
             match args.action:
                 case Action.VALIDATE:
-                    if not handle_error(validate(config, plugins)):
-                        sys.exit(1)
+                    sys.exit(0)
+
+                case Action.APPLY_MODE:
+                    success, errors = apply_mode(args.mode, config, plugins)
+                    handle_error((True if success else None, errors))
 
                 case _:
                     raise NotImplementedError('I\'m not that fast of a developer!')
