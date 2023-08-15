@@ -167,7 +167,6 @@ def __validate_remove_unknown_plugins(config: ValidatedConfig, plugins: LoadedPl
 # @param plugins Plugins mentioned in the configuration file.
 # @returns All errors reported by plugins.
 ##
-# pylint: disable=too-many-locals
 def __validate_plugins(config: ValidatedConfig, plugins: set[Plugin]) -> \
     tuple[None, list[Error]]:
 
@@ -177,8 +176,12 @@ def __validate_plugins(config: ValidatedConfig, plugins: set[Plugin]) -> \
         successful = handle_error_append(errors, wrapped_validate(plugin, config))
 
 
-        error_modes = list(filter(lambda mode: mode not in successful,
-                                  filter(lambda key: plugin.name in config[key], config.keys())))
+        error_modes: list[str] = \
+        list(filter(lambda mode, suc=successful: mode not in suc, # type: ignore
+                    # pylint: disable=line-too-long
+                    filter(lambda key, name=plugin.name, cfg=config: name in cfg[key], # type: ignore
+                           config.keys())))
+
         if len(error_modes) != 0:
             errors.append(Error(ErrorType.WARNING, f'Removing plugin {plugin.name} from the ' \
                                                     'following powermodes: ' + \
@@ -222,7 +225,6 @@ def validate(config: ParsedConfig, plugins: LoadedPlugins) -> tuple[bool, list[E
 # @param plugins Loaded plugins.
 # @returns Whether the mode application was sucessful, along with reported errors.
 ##
-# pylint: disable=too-many-branches
 def apply_mode(mode: str, config: ValidatedConfig, plugins: LoadedPlugins) -> \
     tuple[bool, list[Error]]:
 
@@ -236,7 +238,7 @@ def apply_mode(mode: str, config: ValidatedConfig, plugins: LoadedPlugins) -> \
         successful = handle_error_append(errors,
                                          wrapped_configure(plugins[plugin_name], config_obj))
 
-        if successful == False:
+        if successful is False:
             errors.append(Error(ErrorType.WARNING, 'configure reported insuccess. You may have ' \
                                                    'ended up with a partially configured ' \
                                                    'system.', \
