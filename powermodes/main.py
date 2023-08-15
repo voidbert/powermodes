@@ -24,20 +24,20 @@
 
 from os import getuid
 import sys
-from typing import Any, Union
+from typing import Union
 
 from .arguments import Action, parse_arguments, validate_arguments, get_help_message, \
     get_version_string
-from .config import load_config, validate, apply_mode
+from .config import ValidatedConfig, load_config, validate, apply_mode
 from .error import Error, ErrorType, handle_error, handle_error_append
-from .plugin import Plugin, load_plugins
+from .plugin import LoadedPlugins,  load_plugins
 
 ##
 # @brief Returns an error if the user hasn't root priveleges.
 ##
 def __assert_root() -> tuple[None, Union[Error, None]]:
     return (None,
-         Error(ErrorType.ERROR, 'powermodes must be run as root!') if getuid() != 0 else None)
+        Error(ErrorType.ERROR, 'powermodes must be run as root!') if getuid() != 0 else None)
 
 ##
 # @brief Formats the program's and plugins' versions.
@@ -63,19 +63,25 @@ def __format_version() -> tuple[str, list[Error]]:
     return (message, errors)
 
 ##
-# @brief Loads a configuration file and plugins.
+# @brief Loads a configuration file (and validates it) and plugins.
 # @details Auxiliary method for [main](@ref powermodes.main.main).
 # @param path Path to the configuration file.
-# @returns A tuple containing a parsed configuration (or `None`) and the a dictionary associating
-#          plugin names to loaded plugins (or `None`), along with errors / warnings that may have
-#          happened.
+# @returns A tuple containing a validated configuration and the loaded plugins, or `None`, if any
+#          of these steps fail, along with errors / warnings that may have happened.
 ##
 def __load_config_plugins(path: str) -> \
-    tuple[tuple[Union[dict[str, Any], None], Union[dict[str, Plugin], None]], list[Error]]:
+    tuple[Union[tuple[ValidatedConfig, LoadedPlugins], None], list[Error]]:
 
     errors: list[Error] = []
     config = handle_error_append(errors, load_config(path))
     plugins = handle_error_append(errors, load_plugins())
+
+    if config is None or plugins is None:
+        return (None, errors)
+
+    validate_success = handle_error_append(errors, validate(config, plugins))
+    if not validate_success:
+        return (None, errors)
 
     return ((config, plugins), errors)
 
@@ -95,14 +101,7 @@ def main() -> None:
 
         case _:
             handle_error(__assert_root())
-
-            (config, plugins), errors = __load_config_plugins(args.config)
-            handle_error((None, errors)) # Print errors
-            if config is None or plugins is None:
-                sys.exit(1)
-
-            success, errors = validate(config, plugins)
-            handle_error((True if success else None, errors))
+            config, plugins = handle_error(__load_config_plugins(args.config))
 
             match args.action:
                 case Action.VALIDATE:

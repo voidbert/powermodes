@@ -62,11 +62,17 @@ class Plugin:
     configure: Callable[[Any], tuple[bool, list[Error]]] = lambda _: (False, [])
 
 ##
+# @brief Dictionary associating plugin names (self-reported `NAME`s) with plugins.
+# @details See [load_plugins](@reg powermodes.plugins.load_plugins).
+##
+LoadedPlugins = dict[str, Plugin]
+
+##
 # @brief Gets a list of all the names of plugin Python modules.
 # @returns A list of all names of plugin Python modules (`None` on failure). Errors and warnings
 #          can also be returned.
 ##
-def list_plugin_module_names() -> tuple[Union[list[str] | None], list[Error]]:
+def list_plugin_module_names() -> tuple[Union[list[str], None], list[Error]]:
 
     def is_plugin(path: Path) -> bool:
         return path.suffix == '.py' and not path.stem.startswith('__')
@@ -151,10 +157,9 @@ def load_plugin(module_name: str) -> tuple[Union[Plugin, None], list[Error]]:
 
 ##
 # @brief Loads all plugins.
-# @returns A dictionary where plugin names (self-reported `NAME`) are associated with
-#          [Plugin](@ref powermodes.plugin.Plugin)s. Errors and warnings are also returned.
+# @returns See [LoadedPlugins](@ref powermodes.plugin.LoadedPlugins).
 ##
-def load_plugins() -> tuple[Union[dict[str, Plugin], None], list[Error]]:
+def load_plugins() -> tuple[Union[LoadedPlugins, None], list[Error]]:
     plugin_module_names, errors = list_plugin_module_names()
     if plugin_module_names is None:
         return (None, errors)

@@ -27,7 +27,23 @@ from traceback import format_exception
 from typing import Any, Union
 
 from .error import Error, ErrorType, handle_error_append, set_unspecified_origins
-from .plugin import Plugin, valid_plugin_validate_return, valid_plugin_configure_return
+from .plugin import LoadedPlugins, Plugin, valid_plugin_validate_return, \
+    valid_plugin_configure_return
+
+##
+# @brief Parsed configuration file.
+# @details There's no certainty there aren't any non-table (dictionary) objects posing as
+#          powermodes. See [load_config](@ref powermodes.config.load_config).
+##
+ParsedConfig = dict[str, Any]
+
+##
+# @brief Validated configuration file.
+# @details The top-level dictionary lists powermodes (name -> content association) and each
+#          powermode associates plugin names to their configuration objects. See
+#          [validate](@ref powermodes.config.validate).
+##
+ValidatedConfig = dict[str, dict[str, Any]]
 
 ##
 # @brief Loads a configuration file.
@@ -35,7 +51,7 @@ from .plugin import Plugin, valid_plugin_validate_return, valid_plugin_configure
 # @param path Path to the configuration file.
 # @return A dictionary representing the TOML configuration.
 ##
-def load_config(path: str) -> tuple[Union[dict[str, Any], None], Union[Error, None]]:
+def load_config(path: str) -> tuple[Union[ParsedConfig, None], Union[Error, None]]:
     try:
         with open(path, 'rb') as file:
             return (load(file), None)
@@ -48,11 +64,12 @@ def load_config(path: str) -> tuple[Union[dict[str, Any], None], Union[Error, No
 ##
 # @brief Removes configuration elements that do not belong to the specified plugin.
 # @details The configuration is deep-copied, so that plugins can't mess it up.
-# @param config Loaded configuration (see [load_config](@ref powermodes.config.load_config)).
+# @param config Partially validated configuration (it must be certain that all powermodes are
+#               dicitonaries).
 # @param plugin_name Name of the plugin to consider.
 # @returns The filtered and copied configuration.
 ##
-def __filter_config_for_plugin(config: dict[str, Any], plugin_name: str) -> dict[str, Any]:
+def __filter_config_for_plugin(config: ValidatedConfig, plugin_name: str) -> ValidatedConfig:
     copy = deepcopy(config)
 
     for mode in list(config):
@@ -64,13 +81,14 @@ def __filter_config_for_plugin(config: dict[str, Any], plugin_name: str) -> dict
 
 ##
 # @brief Removes references to a plugin in a configuration file.
-# @details Auxiliary function for [validate](@ref powermodes.config.validate). Used for when a
-#          plugin's configuration validation misbehaves.
-# @param config Loaded configuration (see [load_config](@ref powermodes.config.load_config)).
+# @details Used for when a plugin's configuration validation misbehaves.
+# @param config Partially validated configuration (it must be certain that all powermodes are
+#               dicitonaries).
 # @param plugin_name Name of the plugin to consider.
-# @param blacklist List of validly configured powermodes not to be removed.
+# @param blacklist List of validly configured powermodes not to be removed, or `None` (default) for
+#                  an empty blacklist.
 ##
-def __remove_plugin_references(config: dict[str, Any], plugin_name: str, \
+def __remove_plugin_references(config: ValidatedConfig, plugin_name: str, \
                                blacklist: Union[list[str], None] = None) -> None:
 
     if blacklist is None:
@@ -82,24 +100,13 @@ def __remove_plugin_references(config: dict[str, Any], plugin_name: str, \
                 del mode_config[name_key]
 
 ##
-# @brief Checks if a configuration file is empty (no plugin configurations).
-# @details Auxiliary function for [validate](@ref powermodes.config.validate).
-# @returns Whether a configuration file is empty (no plugin configurations).
-##
-def __is_config_empty(config: dict[str, Any]) -> bool:
-    if not config:
-        return True
-    else:
-        return all(map(lambda dict: not bool(dict), config.values()))
-
-##
 # @brief Removes all non-`dict`s from @p config.
 # @details Auxiliary function for [validate](@ref powermodes.config.validate).
-# @param config Loaded configuration (see [load_config](@ref powermodes.config.load_config)). Will
-#               be modified.
+# @param config Parsed configuration file. After calling this function, the config is transformed
+#               into a [ValidatedConfig](@ref powermodes.config.ValidatedConfig).
 # @returns All errors reporting non-dictionaries.
 ##
-def __validate_remove_non_dicts(config: dict[str, Any]) -> tuple[None, list[Error]]:
+def __validate_remove_non_dicts(config: ParsedConfig) -> tuple[None, list[Error]]:
     errors: list[Error] = []
 
     for mode in list(config):
@@ -113,13 +120,13 @@ def __validate_remove_non_dicts(config: dict[str, Any]) -> tuple[None, list[Erro
 ##
 # @brief Removes all empty dictionaries (power modes) from @p config.
 # @details Auxiliary function for [validate](@ref powermodes.config.validate).
-# @param config Loaded configuration (see [load_config](@ref powermodes.config.load_config)). Will
-#               be modified.
+# @param config Partially validated configuration (it must be certain that all powermodes are
+#               dicitonaries).
 # @param results_from_removal If any empty dicitonary may result from the removal of invalid
 #                             configuration parts. Will affect the error message.
 # @returns All errors reporting empty dictionaries.
 ##
-def __validate_remove_empty_dicts(config: dict[str, Any], results_from_removal: bool) \
+def __validate_remove_empty_dicts(config: ValidatedConfig, results_from_removal: bool) \
     -> tuple[None, list[Error]]:
 
     errors: list[Error] = []
@@ -141,13 +148,14 @@ def __validate_remove_empty_dicts(config: dict[str, Any], results_from_removal: 
 ##
 # @brief Removes all configurations for unknown plugins from @p config.
 # @details Auxiliary function for [validate](@ref powermodes.config.validate).
-# @param config Loaded configuration (see [load_config](@ref powermodes.config.load_config)). Will
-#               be modified.
-# @param plugins Loaded plugins (see [load_plugins](@reg powermodes.plugins.load_plugins)).
-# @returns A set of plugins used in the config file, along with errors reporting unknown plugins.
+# @param config Partially validated configuration (it must be certain that all powermodes are
+#               dicitonaries).
+# @param plugins Loaded plugins.
+# @returns A set of plugin names used in the config file, along with errors reporting unknown
+#          plugins.
 ##
 # pylint: disable=too-many-locals
-def __validate_remove_unknown_plugins(config: dict[str, Any], plugins: dict[str, Plugin]) \
+def __validate_remove_unknown_plugins(config: ValidatedConfig, plugins: LoadedPlugins) \
     -> tuple[set[str], list[Error]]:
 
     errors: list[Error] = []
@@ -175,13 +183,13 @@ def __validate_remove_unknown_plugins(config: dict[str, Any], plugins: dict[str,
 ##
 # @brief Asks plugins to validate their configs.
 # @details Auxiliary function for [validate](@ref powermodes.config.validate).
-# @param config Loaded configuration (see [load_config](@ref powermodes.config.load_config)). Will
-#               be modified.
+# @param config Partially validated configuration (it must be certain that all powermodes are
+#               dicitonaries).
 # @param plugins Plugins mentioned in the configuration file.
 # @returns All errors reported by plugins.
 ##
 # pylint: disable=too-many-locals
-def __validate_plugins(config: dict[str, Any], plugins: set[Plugin]) -> \
+def __validate_plugins(config: ValidatedConfig, plugins: set[Plugin]) -> \
     tuple[None, list[Error]]:
 
     errors: list[Error] = []
@@ -218,12 +226,12 @@ def __validate_plugins(config: dict[str, Any], plugins: set[Plugin]) -> \
 
 ##
 # @brief Checks if a configuration file is valid. Modifies @p config to remove invalid parts.
-# @param config Loaded configuration (see [load_config](@ref powermodes.config.load_config)).
-# @param plugins Loaded plugins (see [load_plugins](@reg powermodes.plugins.load_plugins)).
+# @param config Parsed configuration.
+# @param plugins Loaded plugins.
 # @returns Whether the configuration file is valid or not, along with configuration warnings /
 #          errors.
 ##
-def validate(config: dict[str, Any], plugins: dict[str, Plugin]) -> tuple[bool, list[Error]]:
+def validate(config: ParsedConfig, plugins: LoadedPlugins) -> tuple[bool, list[Error]]:
     errors: list[Error] = []
 
     handle_error_append(errors, __validate_remove_non_dicts(config))
@@ -234,7 +242,7 @@ def validate(config: dict[str, Any], plugins: dict[str, Plugin]) -> tuple[bool, 
     handle_error_append(errors, __validate_plugins(config, known_plugins))
     handle_error_append(errors, __validate_remove_empty_dicts(config, True))
 
-    if __is_config_empty(config):
+    if not config:
         errors.append(Error(ErrorType.ERROR, 'Empty configuration (this may be the result ' \
                                              'of the removal of invalid config parts).'))
         return (False, errors)
@@ -244,12 +252,12 @@ def validate(config: dict[str, Any], plugins: dict[str, Plugin]) -> tuple[bool, 
 ##
 # @brief Applies a power mode from a validated configuration file.
 # @param mode Name of the mode to be applied
-# @param config Validated (see [validate](@ref powermodes.config.validate)) configuration file.
-# @param plugins Loaded plugins (see [load_plugins](@reg powermodes.plugins.load_plugins)).
+# @param config Validated configuration file.
+# @param plugins Loaded plugins.
 # @returns Whether the mode application was sucessful, along with reported errors.
 ##
 # pylint: disable=too-many-branches
-def apply_mode(mode: str, config: dict[str, dict[str, Any]], plugins: dict[str, Plugin]) -> \
+def apply_mode(mode: str, config: ValidatedConfig, plugins: LoadedPlugins) -> \
     tuple[bool, list[Error]]:
 
     errors: list[Error] = []
