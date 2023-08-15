@@ -21,14 +21,11 @@
 # @brief Loading of configuration files.
 ##
 
-from copy import deepcopy
 from tomllib import TOMLDecodeError, load
-from traceback import format_exception
 from typing import Any, Union
 
-from .error import Error, ErrorType, handle_error_append, set_unspecified_origins
-from .plugin import LoadedPlugins, Plugin, valid_plugin_validate_return, \
-    valid_plugin_configure_return
+from .error import Error, ErrorType, handle_error_append
+from .plugin import LoadedPlugins, Plugin, wrapped_validate, wrapped_configure
 
 ##
 # @brief Parsed configuration file.
@@ -60,24 +57,6 @@ def load_config(path: str) -> tuple[Union[ParsedConfig, None], Union[Error, None
     except TOMLDecodeError as ex:
         return (None, Error(ErrorType.ERROR, f'Failed to parse config in "{path}".' \
                                              f'Here\'s the error message:\n{str(ex)}'))
-
-##
-# @brief Removes configuration elements that do not belong to the specified plugin.
-# @details The configuration is deep-copied, so that plugins can't mess it up.
-# @param config Partially validated configuration (it must be certain that all powermodes are
-#               dicitonaries).
-# @param plugin_name Name of the plugin to consider.
-# @returns The filtered and copied configuration.
-##
-def __filter_config_for_plugin(config: ValidatedConfig, plugin_name: str) -> ValidatedConfig:
-    copy = deepcopy(config)
-
-    for mode in list(config):
-        for name_key in list(config[mode]):
-            if name_key != plugin_name:
-                del copy[mode][name_key]
-
-    return copy
 
 ##
 # @brief Removes references to a plugin in a configuration file.
@@ -194,33 +173,20 @@ def __validate_plugins(config: ValidatedConfig, plugins: set[Plugin]) -> \
 
     errors: list[Error] = []
 
-    # Plugin verification
     for plugin in plugins:
-        filtered = __filter_config_for_plugin(config, plugin.name)
-        try:
-            plugin_return = plugin.validate(filtered)
-            if valid_plugin_validate_return(plugin_return):
-                successful, plugin_errors = plugin_return
-                set_unspecified_origins(plugin_errors, plugin.name)
-                errors.extend(plugin_errors)
+        successful = handle_error_append(errors, wrapped_validate(plugin, config))
 
-                __remove_plugin_references(config, plugin.name, successful)
-            else:
-                errors.append(Error(ErrorType.WARNING, 'validate returned an invalid value: ' \
-                                                      f'{plugin_return}. Ignoring this plugin.',
-                                    plugin.name))
-                __remove_plugin_references(config, plugin.name)
 
-        # Needed pylint suppression because a module can throw any type of error
-        # pylint: disable=broad-exception-caught
-        except BaseException as ex:
-            exception_text = ''.join(format_exception(ex))
-            errors.append(Error(ErrorType.WARNING, f'Calling validate resulted in an exception. ' \
-                                                    'Ignoring that plugin. Here\'s the ' \
-                                                   f'exception:\n{exception_text}',
+        error_modes = list(filter(lambda mode: mode not in successful,
+                                  filter(lambda key: plugin.name in config[key], config.keys())))
+        if len(error_modes) != 0:
+            errors.append(Error(ErrorType.WARNING, f'Removing plugin {plugin.name} from the ' \
+                                                    'following powermodes: ' + \
+                                                    ', '.join(error_modes) + '. Plugin\'s ' \
+                                                    'validate method failed.',
                                 plugin.name))
 
-            __remove_plugin_references(config, plugin.name)
+        __remove_plugin_references(config, plugin.name, successful)
 
     return (None, errors)
 
@@ -266,38 +232,18 @@ def apply_mode(mode: str, config: ValidatedConfig, plugins: LoadedPlugins) -> \
         return (False, [ Error(ErrorType.ERROR, f'Powermode {mode} not in configuration file') ])
 
     all_failed = True
-    for plugin_name in config[mode]: # Unknown plugins should already have been removed
-        plugin = plugins[plugin_name]
-        try:
-            plugin_return = plugin.configure(config[mode][plugin_name])
-            if valid_plugin_configure_return(plugin_return):
-                successful, plugin_errors = plugin_return
-                set_unspecified_origins(plugin_errors, plugin.name)
-                errors.extend(plugin_errors)
+    for plugin_name, config_obj in config[mode].items():
+        successful = handle_error_append(errors,
+                                         wrapped_configure(plugins[plugin_name], config_obj))
 
-                if not successful:
-                    errors.append(Error(ErrorType.WARNING, 'configure reported insuccess. ' \
-                                                           'You may have ended up with a ' \
-                                                           'partially configured system.', \
-                                        plugin.name))
-                else:
-                    all_failed = False
-            else:
-                errors.append(Error(ErrorType.WARNING, 'configure returned an invalid value: ' \
-                                                      f'{plugin_return}. Unable to report any ' \
-                                                       'error / warning from this plugin. You ' \
-                                                       'may have ended up with a partially ' \
-                                                       'configured system.', plugin.name))
+        if successful == False:
+            errors.append(Error(ErrorType.WARNING, 'configure reported insuccess. You may have ' \
+                                                   'ended up with a partially configured ' \
+                                                   'system.', \
+                                plugin_name))
+        else:
+            all_failed = False
 
-        # Needed pylint suppression because a module can throw any type of error
-        # pylint: disable=broad-exception-caught
-        except BaseException as ex:
-            exception_text = ''.join(format_exception(ex))
-            errors.append(Error(ErrorType.WARNING, f'Calling configure resulted in an ' \
-                                                    'exception. You may have ended up with a ' \
-                                                    'partially configured system. Here\'s the ' \
-                                                   f'exception:\n{exception_text}',
-                                plugin.name))
 
     if all_failed:
         errors.append(Error(ErrorType.ERROR, f'All plugins failed to apply mode {mode}'))

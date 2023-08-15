@@ -21,6 +21,7 @@
 # @brief Plugin loading and tooling.
 ##
 
+from copy import deepcopy
 from dataclasses import dataclass
 from importlib import import_module
 from inspect import signature
@@ -28,7 +29,13 @@ from pathlib import Path
 from traceback import format_exception
 from typing import Any, Callable, Union
 
-from .error import Error, ErrorType, handle_error_append
+from .error import Error, ErrorType, handle_error_append, set_unspecified_origins
+
+##
+# @brief See [config.ValidatedConfig](@ref powermodes.config.ValidatedConfig).
+# @details Needed to avoid cyclical imports.
+##
+ValidatedConfig = dict[str, dict[str, Any]]
 
 ##
 # @brief Path to directory that contains the plugins.
@@ -66,6 +73,142 @@ class Plugin:
 # @details See [load_plugins](@reg powermodes.plugins.load_plugins).
 ##
 LoadedPlugins = dict[str, Plugin]
+
+##
+# @brief Checks if the value returned by a plugin's `validate` method is valid.
+# @param Value returned by the `validate` method.
+# @returns Whether the value returned by a plugin's `validate` method is valid.
+##
+def __valid_plugin_validate_return(obj: Any) -> bool:
+    if not isinstance(obj, tuple):
+        return False
+    if len(obj) != 2:
+        return False
+
+    if not isinstance(obj[0], list) or not isinstance(obj[1], list):
+        return False
+
+    if not all(map(lambda e: isinstance(e, str), obj[0])):
+        return False
+    if not all(map(lambda e: isinstance(e, Error), obj[1])):
+        return False
+
+    return True
+
+##
+# @brief Checks if the value returned by a plugin's `configure` method is valid.
+# @param Value returned by the `configre` method.
+# @returns Whether the value returned by a plugin's `configure` method is valid.
+##
+def __valid_plugin_configure_return(obj: Any) -> bool:
+    if not isinstance(obj, tuple):
+        return False
+    if len(obj) != 2:
+        return False
+
+    if not isinstance(obj[0], bool):
+        return False
+
+    if not isinstance(obj[1], list):
+        return False
+    if not all(map(lambda e: isinstance(e, Error), obj[1])):
+        return False
+
+    return True
+
+##
+# @brief Removes configuration objects that do not belong to the specified plugin.
+# @details The configuration is deep-copied, so that plugins can't mess it up.
+# @param config Partially validated configuration (it must be certain that all powermodes are
+#               dicitonaries).
+# @param plugin_name Name of the plugin to consider.
+# @returns The filtered and copied configuration.
+##
+def __filter_config_for_plugin(config: ValidatedConfig, plugin_name: str) -> ValidatedConfig:
+    copy = deepcopy(config)
+
+    for mode in list(config):
+        for name_key in list(config[mode]):
+            if name_key != plugin_name:
+                del copy[mode][name_key]
+
+    return copy
+
+##
+# @brief Wrapper around a plugin's `validate`.
+# @details
+# Calls the plugin's `validate`, but makes sure of the following:
+# - @p config is copied and filtered to contain information only about this plugin, before
+#   being used as an argument of `validate`;
+# - Any exception coming from the plugin is handled and transformed into an error;
+# - If the plugin returns an object of an unexpected type, an error is reported;
+# - Plugin's errors without a specified origin have it set to the plugin's name.
+# @param plugin Plugin to validate @p config with.
+# @param config Validated configuration file.
+# @returns The same as the `validate` method, or `[]` if errors happened.
+##
+def wrapped_validate(plugin: Plugin, config: ValidatedConfig) -> tuple[list[str], list[Error]]:
+    filtered = __filter_config_for_plugin(config, plugin.name)
+
+    try:
+        plugin_return = plugin.validate(filtered)
+        if __valid_plugin_validate_return(plugin_return):
+            successful, plugin_errors = plugin_return
+            set_unspecified_origins(plugin_errors, plugin.name)
+
+            return (successful, plugin_errors)
+        else:
+            return ([], [ Error(ErrorType.WARNING, 'validate returned an invalid value: ' \
+                                                  f'{plugin_return}. Unable to report any error ' \
+                                                   '/ warning from this plugin. Ignoring it.',
+                              plugin.name) ])
+
+    # Needed pylint suppression because a module can throw any type of error
+    # pylint: disable=broad-exception-caught
+    except BaseException as ex:
+        exception_text = ''.join(format_exception(ex))
+        return ([], [ Error(ErrorType.WARNING, f'Calling validate resulted in an exception. ' \
+                                                'Ignoring that plugin. Unable to report any ' \
+                                                'other error / warning from this plugin. ' \
+                                               f'Here\'s the exception:\n{exception_text}',
+                          plugin.name) ])
+
+##
+# @brief Wrapper around a plugin's `configure`.
+# @details
+# Calls the plugin's `configure`, but makes sure of the following:
+# - Any exception coming from the plugin is handled and transformed into an error;
+# - If the plugin returns an object of an unexpected type, an error is reported;
+# - Plugin's errors without a specified origin have it set to the plugin's name.
+# @param plugin Plugin to validate @p config with.
+# @param obj Configuration object plugin for the plugin.
+# @returns The same as the `configure` method, or `None` if errors happened.
+##
+def wrapped_configure(plugin: Plugin, obj: Any) -> tuple[Union[bool, None], list[Error]]:
+    try:
+        plugin_return = plugin.configure(obj)
+        if __valid_plugin_configure_return(plugin_return):
+            success, plugin_errors = plugin_return
+            set_unspecified_origins(plugin_errors, plugin.name)
+            return (success, plugin_errors)
+        else:
+            return (None, [ Error(ErrorType.WARNING, 'configure returned an invalid value: ' \
+                                                    f'{plugin_return}. Unable to report any ' \
+                                                     'error / warning from this plugin. You ' \
+                                                     'may have ended up with a partially ' \
+                                                     'configured system.', plugin.name) ])
+
+    # Needed pylint suppression because a module can throw any type of error
+    # pylint: disable=broad-exception-caught
+    except BaseException as ex:
+        exception_text = ''.join(format_exception(ex))
+        return (None, [ Error(ErrorType.WARNING, f'Calling configure resulted in an ' \
+                                                  'exception. You may have ended up with a ' \
+                                                  'partially configured system. Unable to ' \
+                                                  'report any other error / warning from this ' \
+                                                  'plugin. Here\'s the exception:\n' \
+                                                 f'{exception_text}', \
+                             plugin.name) ])
 
 ##
 # @brief Gets a list of all the names of plugin Python modules.
@@ -177,45 +320,3 @@ def load_plugins() -> tuple[Union[LoadedPlugins, None], list[Error]]:
                                                        f'"{plug.file}"'))
 
     return (plugins, errors)
-
-##
-# @brief Checks if the value returned by a plugin's `validate` method is valid.
-# @param Value returned by the `validate` method.
-# @returns Whether the value returned by a plugin's `validate` method is valid.
-##
-def valid_plugin_validate_return(obj: Any) -> bool:
-    if not isinstance(obj, tuple):
-        return False
-    if len(obj) != 2:
-        return False
-
-    if not isinstance(obj[0], list) or not isinstance(obj[1], list):
-        return False
-
-    if not all(map(lambda e: isinstance(e, str), obj[0])):
-        return False
-    if not all(map(lambda e: isinstance(e, Error), obj[1])):
-        return False
-
-    return True
-
-##
-# @brief Checks if the value returned by a plugin's `configure` method is valid.
-# @param Value returned by the `configre` method.
-# @returns Whether the value returned by a plugin's `configure` method is valid.
-##
-def valid_plugin_configure_return(obj: Any) -> bool:
-    if not isinstance(obj, tuple):
-        return False
-    if len(obj) != 2:
-        return False
-
-    if not isinstance(obj[0], bool):
-        return False
-
-    if not isinstance(obj[1], list):
-        return False
-    if not all(map(lambda e: isinstance(e, Error), obj[1])):
-        return False
-
-    return True
