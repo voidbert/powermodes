@@ -21,7 +21,6 @@
 # @brief Entry point to the program.
 ##
 
-
 from os import getuid
 import sys
 from typing import Union
@@ -30,6 +29,7 @@ from .arguments import Action, parse_arguments, validate_arguments, get_help_mes
     get_version_string
 from .config import ValidatedConfig, load_config, validate, apply_mode
 from .error import Error, ErrorType, handle_error, handle_error_append
+from .input import choose_option
 from .plugin import LoadedPlugins,  load_plugins
 
 ##
@@ -111,5 +111,9 @@ def main() -> None:
                     success, errors = apply_mode(args.mode, config, plugins)
                     handle_error((True if success else None, errors))
 
-                case _:
-                    raise NotImplementedError('I\'m not that fast of a developer!')
+                case Action.INTERACTIVE:
+                    options = list(zip(config.keys(), config.keys()))
+                    mode = choose_option(options, 'Choose a powermode:')
+
+                    success, errors = apply_mode(mode, config, plugins)
+                    handle_error((True if success else None, errors))
