@@ -20,4 +20,3 @@
 # @package powermodes
 # @brief Laptop power consumption manager
 ##
-

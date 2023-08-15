@@ -18,6 +18,5 @@
 ##
 # @file __init__.py
 # @package powermodes.plugins
-# @brief Directory where plugins are placed
+# @brief Plugins for powermodes
 ##
-

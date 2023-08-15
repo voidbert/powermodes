@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # -------------------------------------------- LICENSE --------------------------------------------
 #
 # Copyright 2023 Humberto Gomes
@@ -20,163 +18,102 @@
 ##
 # @file main.py
 # @package powermodes.main
-# @brief Entry point and command-line argument parsing.
+# @brief Entry point to the program.
 ##
 
-from enum import Enum
-from argparse import ArgumentParser, Namespace
-from importlib.metadata import version
 from os import getuid
+import sys
+from typing import Union
 
-from .utils import fatal, warning
-from .pluginloader import list_plugins, plugin_interact, plugin_configure
-from .configloader import load_config, list_modes, load_args_config, apply_mode
-from .interactivemode import interactive_mode
-
-##
-# @enum ArgumentsActionType
-# @brief Action to be performed after parsing command-line arguments.
-##
-class ArgumentsActionType(Enum):
-    CONFIG_PLUGIN_ARGS        = 1 ##< @brief Configure a plugin from command-line arguments.
-    LIST_PLUGINS              = 2 ##< @brief List installed plugins.
-
-    APPLY_MODE                = 3 ##< @brief Apply power mode in the configuration file.
-    LIST_MODES                = 4 ##< @brief List power modes in the configuration file.
-
-    INTERACTIVE_MODE          = 5 ##< @brief Interactively configure power modes / plugins.
-    PLUGIN_INTERACTIVE_MODE   = 6 ##< @brief Configure a single plugin interactively.
-    PLUGINS_INTERACTIVE_MODE  = 7 ##< @brief Interactively configure plugins (config file not
-                                  #          provided).
+from .arguments import Action, parse_arguments, validate_arguments, get_help_message, \
+    get_version_string
+from .config import ValidatedConfig, load_config, validate, apply_mode
+from .error import Error, ErrorType, handle_error, handle_error_append
+from .input import choose_option
+from .plugin import LoadedPlugins,  load_plugins
 
 ##
-# @brief Parses command-line arguments.
-# @returns A `argparse.Namespace` with the following keys:
-#            - `config : str`:        path to configuration file;
-#
-#            - `mode : str`:          power mode to be activated;
-#            - `list_modes : bool`:   if the user wants to list power modes;
-#
-#            - `plugin : str`:        plugin to be configured;
-#            - `plugin_config : str`: arguments for the plugin to be configured;
-#            - `list_plugins : bool`: if the user wants to list installed plugins.
+# @brief Returns an error if the user hasn't root priveleges.
 ##
-def parse_arguments() -> Namespace:
-    parser = ArgumentParser(prog='powermodes',
-                            description='Laptop power consumption manager',
-                            epilog='If nothing / only CONFIG is specified, the interactive mode '
-                                   'will be enabled.',
-                            usage='powermodes [options]')
-
-    try:
-        powermodes_version = version('powermodes')
-    except:
-        powermodes_version = 'Unknown version'
-
-    parser.add_argument('-v', '--version', action='version', version=powermodes_version)
-    parser.add_argument('-c', '--config', help='specify path to configuration file')
-
-    parser.add_argument('-p', '--plugin', help='configure installed PLUGIN')
-    parser.add_argument('--plugin-config',
-                        help='arguments for PLUGIN (instead of interactive config)')
-    parser.add_argument('--list-plugins', action='store_true', help='list installed plugins')
-
-    parser.add_argument('-m', '--mode', help='apply power MODE')
-    parser.add_argument('--list-modes', action='store_true', help='list power modes')
-
-    return parser.parse_args()
+def __assert_root() -> tuple[None, Union[Error, None]]:
+    return (None,
+        Error(ErrorType.ERROR, 'powermodes must be run as root!') if getuid() != 0 else None)
 
 ##
-# @brief Validates and interprets command line arguments.
-# @details Exits with a message in case of error.
-# @param args Result from [parse_arguments](@ref powermodes.main.parse_arguments).
-# @returns The action the user wants to perform.
+# @brief Formats the program's and plugins' versions.
+# @details Auxiliary method for [main](@ref powermodes.main.main).
+# @returns The formatted version message, along with possible warnings that may happen while
+#          getting powermodes' version or loading plugins.
 ##
-def analyze_arguments(args: Namespace) -> ArgumentsActionType:
+def __format_version() -> tuple[str, list[Error]]:
+    errors: list[Error] = []
+    version = handle_error_append(errors, get_version_string())
+    plugins = handle_error_append(errors, load_plugins())
 
-    # Determine action
-    action_type: ArgumentsActionType = None
-    args_dict: dict = vars(args)
+    message = ''
 
-    for var in ['plugin', 'list_plugins', 'mode', 'list_modes']:
-        if args_dict[var]:
-            if action_type is not None:
-                fatal('multiple actions specified!')
-            else:
-                action_type = {
-                    'plugin': ArgumentsActionType.PLUGIN_INTERACTIVE_MODE,
-                    'list_plugins': ArgumentsActionType.LIST_PLUGINS,
-                    'mode': ArgumentsActionType.APPLY_MODE,
-                    'list_modes': ArgumentsActionType.LIST_MODES,
-                }[var]
+    if version is not None:
+        message += f'\n{version}\n'
 
-    if action_type is None:
-        if args.config is None:
-            action_type = ArgumentsActionType.PLUGINS_INTERACTIVE_MODE
-            warning('no config file provided. Only plugin configuration available!')
-        else:
-            action_type = ArgumentsActionType.INTERACTIVE_MODE
+    if len(plugins) != 0:
+        message += '\nVersions of installed plugins:\n'
+        for plugin in plugins.values():
+            message += f'{plugin.name} {plugin.version}\n'
 
-    elif action_type == ArgumentsActionType.PLUGIN_INTERACTIVE_MODE and \
-            args.plugin_config is not None:
-        action_type = ArgumentsActionType.CONFIG_PLUGIN_ARGS
-
-    # Configuration requirement
-    if action_type in [ ArgumentsActionType.APPLY_MODE, ArgumentsActionType.LIST_MODES ] and \
-       args.config is None:
-        fatal('a config file needs to be specified for this action!')
-
-    # Warnings for excessive arguments
-    if args.config is not None and action_type in [ ArgumentsActionType.CONFIG_PLUGIN_ARGS,
-                                                    ArgumentsActionType.LIST_PLUGINS,
-                                                    ArgumentsActionType.PLUGIN_INTERACTIVE_MODE ]:
-        warning('unnecessary config file (-c / --config) specified!')
-
-    if args.plugin_config is not None and action_type != ArgumentsActionType.CONFIG_PLUGIN_ARGS:
-        warning('unnecessary --plugin-config specified!')
-
-    return action_type
+    return (message, errors)
 
 ##
-# @brief Leaves the program if the current user isn't root.
-# @details An error message is printed to stderr.
+# @brief Loads a configuration file (and validates it) and plugins.
+# @details Auxiliary method for [main](@ref powermodes.main.main).
+# @param path Path to the configuration file.
+# @returns A tuple containing a validated configuration and the loaded plugins, or `None`, if any
+#          of these steps fail, along with errors / warnings that may have happened.
 ##
-def assert_root() -> ():
-    if getuid() != 0:
-        fatal('powermodes must be run as root!')
+def __load_config_plugins(path: str) -> \
+    tuple[Union[tuple[ValidatedConfig, LoadedPlugins], None], list[Error]]:
+
+    errors: list[Error] = []
+    config = handle_error_append(errors, load_config(path))
+    plugins = handle_error_append(errors, load_plugins())
+
+    if config is None or plugins is None:
+        return (None, errors)
+
+    validate_success = handle_error_append(errors, validate(config, plugins))
+    if not validate_success:
+        return (None, errors)
+
+    return ((config, plugins), errors)
 
 ##
 # @brief The entry point to powermodes.
 ##
-def main() -> ():
-    args = parse_arguments()
-    action = analyze_arguments(args)
+def main() -> None:
+    parsed_args = handle_error(parse_arguments())
+    args = handle_error(validate_arguments(parsed_args))
 
-    if action not in [ ArgumentsActionType.LIST_PLUGINS, ArgumentsActionType.LIST_MODES ]:
-        assert_root()
+    match args.action:
+        case Action.SHOW_HELP:
+            print(get_help_message())
 
-    if action == ArgumentsActionType.CONFIG_PLUGIN_ARGS:
-        plugin_config = load_args_config(args.plugin_config)
-        plugin_configure(args.plugin, plugin_config)
+        case Action.SHOW_VERSION:
+            print(handle_error(__format_version()))
 
-    elif action == ArgumentsActionType.LIST_PLUGINS:
-        for plugin in list_plugins():
-            print(plugin)
+        case _:
+            handle_error(__assert_root())
+            config, plugins = handle_error(__load_config_plugins(args.config))
 
-    elif action == ArgumentsActionType.APPLY_MODE:
-        config = load_config(args.config)
-        apply_mode(config, args.mode)
+            match args.action:
+                case Action.VALIDATE:
+                    sys.exit(0)
 
-    elif action == ArgumentsActionType.LIST_MODES:
-        config = load_config(args.config)
-        for mode in list_modes(config):
-            print(mode)
+                case Action.APPLY_MODE:
+                    success, errors = apply_mode(args.mode, config, plugins)
+                    handle_error((True if success else None, errors))
 
-    elif action == ArgumentsActionType.PLUGIN_INTERACTIVE_MODE:
-        plugin_interact(args.plugin)
-    else:
-        interactive_mode(args.config)
+                case Action.INTERACTIVE:
+                    options = list(zip(config.keys(), config.keys()))
+                    mode = choose_option(options, 'Choose a powermode:')
 
-if __name__ == '__main__':
-    main()
-
+                    success, errors = apply_mode(mode, config, plugins)
+                    handle_error((True if success else None, errors))
