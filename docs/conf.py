@@ -20,7 +20,8 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath('..'))
 
-extensions = ['sphinx.ext.autodoc']
+# Requires pip install sphinx-autodoc-typehints
+extensions = ['sphinx.ext.autodoc', 'sphinx_autodoc_typehints']
 
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
