@@ -15,28 +15,34 @@
 #
 # -------------------------------------------------------------------------------------------------
 
-##
-# @file input.py
-# @package powermodes.input
-# @brief Methods for getting user input.
-##
+"""
+powermodes.input
+================
+
+Methods to read and parse user input. Useful for powermodes' interactive mode
+(:attr:`powermodes.arguments.Action.INTERACTIVE`) and for any plugin's interactive features.
+"""
 
 from collections.abc import Iterable
 from typing import Any
 from sys import maxsize, stderr
 
-##
-# @brief Gets an integer from `stdin`.
-# @details On parsing / range failure, this method tries to read input again, until a valid integer
-#          is found.
-# @param bottom Minimum number accepted. Defaults to the smallest integer.
-# @param top    Maximum number accepted. Default to the largest integer.
-# @param prompt Prompt given to Python's `input`. Will be formatted and with the arguments @p top
-#               and @p bottom. Defaults to `{bottom} - {top} > `.
-# @returns The inputted integer.
-##
 def input_integer(bottom: int = -maxsize - 1, top: int = maxsize,
                   prompt: str ='{bottom} - {top} > ') -> int:
+    """Queries the user to input an integer, then reads it from ``stdin``. In case the text
+    inputted does not read as an integer in the desired range, an error message is printed to
+    ``stdout`` and this method tries to get an integer from the user again and again, until valid
+    input is obtained.
+
+    :param bottom: Lowest number the user is allowed to input. Defaults to the smallest integer
+                   for the user's system (``- sys.maxsize - 1``).
+    :param top: Highest number the user is allowed to input (**inclusive range**). Defaults to the
+                largest integer for the user's system (``sys.maxsize``).
+    :param prompt: Prompt provided to Python's ``input`` method. The string will be formatted with
+               the values of arguments ``bottom`` and ``top``.
+
+    :return: The integer inputted by the user.
+    """
 
     while True:
         string_input = input(prompt.format(bottom=bottom, top=top))
@@ -49,36 +55,50 @@ def input_integer(bottom: int = -maxsize - 1, top: int = maxsize,
         except ValueError:
             print(f'Input must be an integer between {bottom} and {top}.', file=stderr)
 
-##
-# @brief Prints a list of strings as options for the user to choose, along with a message.
-# @param options Options to be printed
-# @param message Message printed before the options.
-# @param line_format Format for each option. Will be formatted with the variables `n` (option
-#               number) and `msg` (message). Defaults to `({n}) - {msg}`.
-##
 def print_options(options: Iterable[str],
-                  message: str ='Choose an option:', line_format: str ='{n} - {msg}') -> None:
+                  message: str ='Choose an option:', line_format: str ='  ({n}) - {opt}') -> None:
+    """Prints a list of strings as options for the user to choose. No input reading is actually
+    performed; for that, see :func:`choose_option`.
+
+    :param options: Iterable of options to be printed.
+    :param message: Message to be printed before the options, asking the user to choose an option.
+                    you can replace the generic ``'Choose an option:'`` message, with something
+                    like ``'Choose a powermode:'``, etc.
+    :param line_format: The string used to format each line containing an option. It will be
+                        formatted variables with ``n``, the number of the option, and ``opt``, the
+                        text content of the option in ``options``.
+    """
 
     print(message, end='\n')
     count = 1
     for option in options:
-        print(line_format.format(n=count, msg=option))
+        print(line_format.format(n=count, opt=option))
         count += 1
 
-##
-# @brief Asks the user to choose an item from a list by inputting a number.
-# @details On parsing / range failure, this method tries to read input again, until a valid integer
-#          is found.
-# @param options List of values and their human-readable counterparts. The latter will be printed,
-#                while one of the former will be returned if the user chooses it.
-# @param message Message asking the user to choose the option.
-# @param line_format Format for option lines. See
-#                    [print_options](@ref powermodes.input.print_options).
-# @param prompt Prompt for [input_integer](@ref powermodes.input.input_integer).
-##
 def choose_option(options: list[tuple[Any, str]], \
-                  message: str ='Choose an option:', line_format: str ='{n} - {msg}', \
+                  message: str ='Choose an option:', line_format: str ='  ({n}) - {opt}', \
                   prompt: str ='{bottom} - {top} > ') -> Any:
+    """Asks the user to choose an item from a list of options, by inputting a number. Like
+    :func:`input_integer`, this function will keep trying to read input until a valid integer is
+    read.
+
+    :param options: A list of tuples, the options the user will choose from. The first tuple
+                    element is the object that will be returned if the user chooses that option.
+                    The second is the name of the object that should be presented to the user.
+    :param message: Argument provided to :func:`print_options`: Message to be printed before the
+                    options, asking the user to choose an option. you can replace the generic
+                    ``'Choose an option:'`` message, with something like ``'Choose a powermode:'``,
+                    etc.
+    :param line_format: Argument provided to :func:`print_options`: The string used to format each
+                        line containing an option. It will be formatted with variables ``n``, the
+                        number of the option, and ``opt``, the text content of the option in
+                        ``options``.
+    :param prompt: Argument provided to :func:`input_integer`: Prompt provided to Python's
+                   ``input`` method. The string will be formatted with the values of
+                   ``bottom`` (1) and ``top`` (``1 + len(options)``).
+
+    :return: The first element of one of the tuples in ``options``.
+    """
 
     print_options(map(lambda t: t[1], options), message, line_format)
     index = input_integer(1, len(options), prompt) - 1
