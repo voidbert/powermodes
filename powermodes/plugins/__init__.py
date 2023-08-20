@@ -15,8 +15,6 @@
 #
 # -------------------------------------------------------------------------------------------------
 
-##
-# @file __init__.py
-# @package powermodes.plugins
-# @brief Plugins for powermodes
-##
+"""
+Plugins for powermodes are in this directory (submodules of :mod:`powermodes.plugins`).
+"""
