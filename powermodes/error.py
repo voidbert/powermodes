@@ -89,11 +89,12 @@ result from ``i_may_fail`` to continue running your function, just use a simple 
 Keep in mind that powermodes' errors aren't the only type of error that needs to be handled.
 **Don't forget to handle Python exceptions!**
 
-Module documentation
-^^^^^^^^^^^^^^^^^^^^
+Module contents
+^^^^^^^^^^^^^^^
 """
 
 from __future__ import annotations
+from dataclasses import dataclass
 from enum import Enum
 import sys
 from typing import Any, NoReturn, Optional, Union
@@ -104,26 +105,24 @@ class ErrorType(Enum):
     WARNING = 0 #: A non-fatal error.
     ERROR = 1   #: A fatal (although, possibly not immediately fatal) error.
 
+@dataclass
 class Error:
     """An error / warning that can be reported by powermodes."""
 
-    def __init__(self: Error, error_type: ErrorType, message: str, \
-                 origin: Optional[str] = None) -> None:
-        """Constructor method"""
+    error_type: ErrorType
+    """Whether the error is fatal (:attr:`ErrorType.ERROR`) or non-fatal
+    (:attr:`ErrorType.WARNING`).
+    """
 
-        self.error_type: ErrorType = error_type
-        """Whether the error is fatal (:attr:`ErrorType.ERROR`) or non-fatal
-        (:attr:`ErrorType.WARNING`)."""
+    message: str
+    """String of the error message."""
 
-        self.message: str = message
-        """String of the error message."""
-
-        self.origin: Optional[str] = origin
-        """The origin of an error can be `None`, meaning it originates from powermodes itself, or
-        the name of the plugin the error originated from. **You don't need to manually specify your
-        errors' origins**, as origins of errors originating from plugins are automatically set
-        before printing the errors.
-        """
+    origin: Optional[str] = None
+    """The origin of an error can be `None`, meaning it originates from powermodes itself, or
+    the name of the plugin the error originated from. **You don't need to manually specify your
+    errors' origins**, as origins of errors originating from plugins are automatically set
+    before printing the errors.
+    """
 
 def print_error(err: Error) -> None:
     """Prints a powermodes' error to ``sys.stderr``. The message will be formated and, if
@@ -131,6 +130,19 @@ def print_error(err: Error) -> None:
     an adequate color (red for :attr:`ErrorType.ERROR` and yellow for :attr:`ErrorType.WARNING`).
 
     :param err: Error to be printed.
+
+    Examples:
+
+    .. code:: python
+
+        >>> print_error(ErrorType.ERROR, 'error message')
+        error: error message
+
+        >>> print_error(ErrorType.WARNING, 'warning message')
+        warning: warning message
+
+        >>> print_error(ErrorType.WARNING, 'warning message', 'origin')
+        origin warning: warning message
     """
 
     print_str = ''
@@ -169,6 +181,26 @@ def handle_error(output: tuple[Optional[Any], Union[Error, list[Error], None]]) 
 
     :param output: The return value of a function that may return errors.
     :return: The first element of ``output``, if the program isn't left fatally.
+
+    Examples:
+
+    .. code:: python
+
+        # In the following code, suppose example_error and example_warning are an error and a
+        # warning, respectively.
+
+        result = handle_error(i_may_fail(0))
+
+        # Suppose i_may_fail(0) returns (None, example_warning). The warning is printed and
+        # result = None.
+        #
+        # Suppose i_may_fail(0) returns (None, [example_warning, example_error]). The warning
+        # and the error are printed, and the program is exited with exit code 1.
+        #
+        # Suppose i_may_fail(0) returns (5, example_error). The error is printed and result = 5.
+        #
+        # Suppose i_may_fail(0) returns (None, example_error). The error is printed and the
+        # program is exited with exit code 1.
     """
 
     obj, err = output
@@ -206,6 +238,25 @@ def handle_error_append(lst: list[Error], \
     :param lst: The list of errors to be modified.
     :param output: The return value of a function that may return errors.
     :return: The first element of ``output``.
+
+    Examples:
+
+    .. code:: python
+
+        # In the following code, suppose example_error, example_warning1 and example_warning2
+        # are errors.
+
+        errors = [ example_error ]
+        result = handle_errors_append(errors, i_may_fail(0))
+
+        # Suppose i_may_fail(0) returned (3.14, None). Then, result = 3.14 and
+        # errors = [ example_error ].
+        #
+        # Suppose i_may_fail(0) returned (6.28, example_warning1). Then, result = 6.28 and
+        # errors = [ example_error, example_warning1 ].
+        #
+        # Suppose i_may_fail(0) returned (None, [ example_warning1, example_warning2 ]). Then,
+        # result = None and errors = [ example_error, example_warning1, example_warning2 ].
     """
 
     obj, err = output
@@ -220,10 +271,24 @@ def set_unspecified_origins(errors: list[Error], origin: str) -> None:
     """Sets the origins of errors whose :attr:`Error.origin` is :data:`None`. Used to set the
     origin of errors coming from plguins. Errors with set origins won't be changed.
 
-    :param errors: List of errors that will be modified to have new origins.
+    :param errors: List of errors that **will be modified** to have new origins.
     :param origin: New origin of the errors of unspecified origin.
 
-    :return: :data:`None`. **Keep in mind that** ``errors`` **is modified**.
+    Example:
+
+    .. code:: python
+
+        errors = [ \\
+                   Error(ErrorType.ERROR, 'error message'), \\
+                   Error(ErrorType.WARNING, 'warning message', 'predefined_origin') \\
+                 ]
+        set_unspecified_origins(errors, 'plugin_name')
+
+        # errors becomes:
+        # [
+        #   Error(ErrorType.ERROR,   'error message',   origin='plugin_name'), \\
+        #   Error(ErrorType.WARNING, 'warning message', origin='predefined_origin') \\
+        # ]
     """
 
     for err in errors:
