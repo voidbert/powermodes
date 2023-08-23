@@ -26,8 +26,7 @@ from os import getuid
 import sys
 from typing import Optional
 
-from .arguments import Action, parse_arguments, validate_arguments, get_help_message, \
-    get_version_string
+from .arguments import Action, parse_validate_arguments, get_help_message, get_version_string
 from .config import ValidatedConfig, load_config, validate, apply_mode
 from .error import Error, ErrorType, handle_error, handle_error_append
 from .input import choose_option
@@ -37,7 +36,7 @@ def __assert_root() -> tuple[None, Optional[Error]]:
     """Checks if the user running powermodes has root priveleges. This is a hard requirement for a
     majority of plugins.
 
-    :return: ``None``, along with a possible error, if the current user isn't root.
+    :return: :data:`None`, along with a possible error, if the current user isn't root.
     """
 
     return (None,
@@ -76,9 +75,9 @@ def __load_config_plugins(path: str) -> \
 
     :param path: Path to the configuration file
 
-    :return: A tuple containing a validated configuration file and the loaded plugins (or ``None``,
-             on failure of any of these steps), along with any errors / warnings that may have
-             happened.
+    :return: A tuple containing a validated configuration file and the loaded plugins (or
+             :data:`None`, on failure of any of these steps), along with any errors / warnings that
+             may have happened.
     """
 
     errors: list[Error] = []
@@ -96,9 +95,7 @@ def __load_config_plugins(path: str) -> \
 
 def main() -> None:
     """The entry point to powermodes"""
-
-    parsed_args = handle_error(parse_arguments())
-    args = handle_error(validate_arguments(parsed_args))
+    args = handle_error(parse_validate_arguments())
 
     match args.action:
         case Action.SHOW_HELP:
