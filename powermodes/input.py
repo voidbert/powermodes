@@ -149,5 +149,5 @@ def choose_option(options: list[tuple[Any, str]], \
     """
 
     print_options(map(lambda t: t[1], options), message, line_format)
-    index = input_integer(1, len(options), prompt) - 1
+    index = input_integer(1, len(options), prompt, error) - 1
     return options[index][0]
