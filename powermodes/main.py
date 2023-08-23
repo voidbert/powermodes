@@ -27,7 +27,7 @@ import sys
 from typing import Optional
 
 from .arguments import Action, parse_validate_arguments, get_help_message, get_version_string
-from .config import ValidatedConfig, load_config, validate, apply_mode
+from .config import ValidatedConfig, load_config, validate_config, apply_mode
 from .error import Error, ErrorType, handle_error, handle_error_append
 from .input import choose_option
 from .plugin import LoadedPlugins,  load_plugins
@@ -87,7 +87,7 @@ def __load_config_plugins(path: str) -> \
     if config is None or plugins is None:
         return (None, errors)
 
-    validate_success = handle_error_append(errors, validate(config, plugins))
+    validate_success = handle_error_append(errors, validate_config(config, plugins))
     if not validate_success:
         return (None, errors)
 
