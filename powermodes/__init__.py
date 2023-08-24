@@ -15,8 +15,6 @@
 #
 # -------------------------------------------------------------------------------------------------
 
-##
-# @file __init__.py
-# @package powermodes
-# @brief Laptop power consumption manager
-##
+"""
+powermodes is a laptop power consumption manager for Linux.
+"""

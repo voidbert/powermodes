@@ -40,8 +40,9 @@ Here are some examples. Note that powermodes needs to be **run as root**:
 | Apply power mode in configuration          | `# powermodes -c config.toml -m` *mode* |
 
 ### Configuration
+<!-- Editing this section requires modifications to the documentation in config.py -->
 
-A configuration file is just a [TOML](https://toml.io) file.
+A configuration file is just a [TOML](https://toml.io) file with the following properties:
 
 - Top-level objects (children of the root object) must be tables, and are called powermodes. These
   are the things you actually enable, like `powersave`, `balanced`, `performance`, etc.
@@ -74,4 +75,18 @@ TODO
 ### Development
 
 If you'd like to develop a plugin, or contribute to the `powermodes` application, make sure to
-check out our [development documentation](Development.md).
+check build developer documentation:
+
+```bash
+$ cd docs
+$ ./make.sh build           # For plugin developers
+$ ./make.sh build --private # For powermodes developers (includes internal methods)
+```
+
+Make sure you have `sphinx` and `sphinx-autodoc-typehints` installed:
+
+```bash
+$ pip install sphinx sphinx-autodoc-typehints
+```
+
+That documentation contains essential information to starting coding!

@@ -15,37 +15,44 @@
 #
 # -------------------------------------------------------------------------------------------------
 
-##
-# @file main.py
-# @package powermodes.main
-# @brief Entry point to the program.
-##
+"""
+powermodes.main
+===============
+
+Module that contains powermode's entry point, :func:`main`.
+"""
 
 from os import getuid
 import sys
-from typing import Union
+from typing import Optional
 
-from .arguments import Action, parse_arguments, validate_arguments, get_help_message, \
-    get_version_string
-from .config import ValidatedConfig, load_config, validate, apply_mode
+from .arguments import Action, parse_validate_arguments, get_help_message, get_version_string
+from .config import ValidatedConfig, load_config, validate_config, apply_mode
 from .error import Error, ErrorType, handle_error, handle_error_append
 from .input import choose_option
 from .plugin import LoadedPlugins,  load_plugins
 
-##
-# @brief Returns an error if the user hasn't root priveleges.
-##
-def __assert_root() -> tuple[None, Union[Error, None]]:
+def __assert_root() -> tuple[None, Optional[Error]]:
+    """Checks if the user running powermodes has root priveleges. This is a hard requirement for a
+    majority of plugins.
+
+    :return: :data:`None`, along with a possible error, if the current user isn't root.
+    """
+
     return (None,
         Error(ErrorType.ERROR, 'powermodes must be run as root!') if getuid() != 0 else None)
 
-##
-# @brief Formats the program's and plugins' versions.
-# @details Auxiliary method for [main](@ref powermodes.main.main).
-# @returns The formatted version message, along with possible warnings that may happen while
-#          getting powermodes' version or loading plugins.
-##
 def __format_version() -> tuple[str, list[Error]]:
+    """Formats a string with the version of both powermodes and the installed plugins. Parts of
+    this message may be omitted if an error occurs while getting either powermodes' or one of the
+    plugins' version.
+
+    This function is responsible for loading all installed plugins, to later get their versions.
+
+    :return: The formatted message string, along with possible warnings from failing to get
+             powermodes' version, or from loading plugins.
+    """
+
     errors: list[Error] = []
     version = handle_error_append(errors, get_version_string())
     plugins = handle_error_append(errors, load_plugins())
@@ -62,15 +69,16 @@ def __format_version() -> tuple[str, list[Error]]:
 
     return (message, errors)
 
-##
-# @brief Loads a configuration file (and validates it) and plugins.
-# @details Auxiliary method for [main](@ref powermodes.main.main).
-# @param path Path to the configuration file.
-# @returns A tuple containing a validated configuration and the loaded plugins, or `None`, if any
-#          of these steps fail, along with errors / warnings that may have happened.
-##
 def __load_config_plugins(path: str) -> \
-    tuple[Union[tuple[ValidatedConfig, LoadedPlugins], None], list[Error]]:
+    tuple[Optional[tuple[ValidatedConfig, LoadedPlugins]], list[Error]]:
+    """Loads installed plugins and a configuration file, that is also validated.
+
+    :param path: Path to the configuration file
+
+    :return: A tuple containing a validated configuration file and the loaded plugins (or
+             :data:`None`, on failure of any of these steps), along with any errors / warnings that
+             may have happened.
+    """
 
     errors: list[Error] = []
     config = handle_error_append(errors, load_config(path))
@@ -79,18 +87,15 @@ def __load_config_plugins(path: str) -> \
     if config is None or plugins is None:
         return (None, errors)
 
-    validate_success = handle_error_append(errors, validate(config, plugins))
+    validate_success = handle_error_append(errors, validate_config(config, plugins))
     if not validate_success:
         return (None, errors)
 
     return ((config, plugins), errors)
 
-##
-# @brief The entry point to powermodes.
-##
 def main() -> None:
-    parsed_args = handle_error(parse_arguments())
-    args = handle_error(validate_arguments(parsed_args))
+    """The entry point to powermodes"""
+    args = handle_error(parse_validate_arguments())
 
     match args.action:
         case Action.SHOW_HELP:

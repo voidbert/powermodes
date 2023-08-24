@@ -15,40 +15,65 @@
 #
 # -------------------------------------------------------------------------------------------------
 
-##
-# @file config.py
-# @package powermodes.config
-# @brief Loading of configuration files.
-##
+"""
+powermodes.config
+=================
+
+Methods for loading and validating configuration files, along with helper methods for plugins.
+
+Configuration files are described in the `project's README <../../../README.md>`_. In this module,
+powermodes developers are likely interested in :func:`load_config`, :func:`validate_config` and
+:func:`apply_mode`.
+
+Module contents
+^^^^^^^^^^^^^^^
+"""
 
 from tomllib import TOMLDecodeError, load
-from typing import Any, Union
+from typing import Any, Optional
 
 from .error import Error, ErrorType, handle_error_append
 from .plugin import LoadedPlugins, Plugin, wrapped_validate, wrapped_configure
 
-##
-# @brief Parsed configuration file.
-# @details There's no certainty there aren't any non-table (dictionary) objects posing as
-#          powermodes. See [load_config](@ref powermodes.config.load_config).
-##
 ParsedConfig = dict[str, Any]
+"""Alias for a configuration file that has been parsed, but not yet validated. There is no
+certainty that children of the root TOML object (powermodes) are dictionaries.
+"""
 
-##
-# @brief Validated configuration file.
-# @details The top-level dictionary lists powermodes (name -> content association) and each
-#          powermode associates plugin names to their configuration objects. See
-#          [validate](@ref powermodes.config.validate).
-##
 ValidatedConfig = dict[str, dict[str, Any]]
+"""Alias for a configuration file that has been parsed and at least partially validated, and it is
+certain that all powermodes are dictionaries.
+"""
 
-##
-# @brief Loads a configuration file.
-# @details [`tomllib`](https://docs.python.org/3/library/tomllib.html) is used.
-# @param path Path to the configuration file.
-# @return A dictionary representing the TOML configuration.
-##
-def load_config(path: str) -> tuple[Union[ParsedConfig, None], Union[Error, None]]:
+def load_config(path: str) -> tuple[Optional[ParsedConfig], Optional[Error]]:
+    """Loads a configuration file using ``tomllib``. Read more about how ``tomllib`` converts TOML
+    into Python objects
+    `here <https://docs.python.org/3/library/tomllib.html#conversion-table>`_. After loading the
+    configuration file, you may be interested in :func:`validate_config`.
+
+    :param path: Path to the configuration file.
+    :return: A dictionary representing the TOML configuration, along with possible fatal errors in
+             case of IO or parsing failures.
+
+    Example:
+
+    The object returned by ``load_config``, for the example config in the
+    `project's README <../../../README.md>`_, is:
+
+    .. code:: python
+
+        {
+            'powersave': { 'pluginA': 'Hello, world',
+                           'pluginB': [ 123, 321 ],
+                           'pluginC': { 'varX': 100, 'varY': 200 }
+                         },
+            'performance': { 'pluginA': 'Hello, Jupiter',
+                             'pluginB': [],
+                             'pluginC': { 'varX': 50, 'varY': 100 }
+                           }
+        }
+    """
+
     try:
         with open(path, 'rb') as file:
             return (load(file), None)
@@ -58,17 +83,19 @@ def load_config(path: str) -> tuple[Union[ParsedConfig, None], Union[Error, None
         return (None, Error(ErrorType.ERROR, f'Failed to parse config in "{path}".' \
                                              f'Here\'s the error message:\n{str(ex)}'))
 
-##
-# @brief Removes references to a plugin in a configuration file.
-# @details Used for when a plugin's configuration validation misbehaves.
-# @param config Partially validated configuration (it must be certain that all powermodes are
-#               dicitonaries).
-# @param plugin_name Name of the plugin to consider.
-# @param blacklist List of validly configured powermodes not to be removed, or `None` (default) for
-#                  an empty blacklist.
-##
 def __remove_plugin_references(config: ValidatedConfig, plugin_name: str, \
-                               blacklist: Union[list[str], None] = None) -> None:
+                               blacklist: Optional[list[str]] = None) -> None:
+    """Removes references to a plugin in a configuration. This is used when a plugin's
+    configuration is deemed invalid, and powermodes tries to continue without it. This is an
+    auxiliary method for :func:`validate_config`.
+
+    :param config: :data:`ValidatedConfig` (partially validated configuration) that
+                   **will be modified**.
+    :param plugin_name: Name of the plugin that will be removed from ``config``.
+    :param blacklist: List of names of powermodes from which the plugin references must not be
+                      removed. Usually, these are the powermodes for which the plugin's
+                      :attr:`~powermodes.plugin.Plugin.validate` method reported success.
+    """
 
     if blacklist is None:
         blacklist = []
@@ -78,14 +105,16 @@ def __remove_plugin_references(config: ValidatedConfig, plugin_name: str, \
             if name_key == plugin_name and mode not in blacklist:
                 del mode_config[name_key]
 
-##
-# @brief Removes all non-`dict`s from @p config.
-# @details Auxiliary function for [validate](@ref powermodes.config.validate).
-# @param config Parsed configuration file. After calling this function, the config is transformed
-#               into a [ValidatedConfig](@ref powermodes.config.ValidatedConfig).
-# @returns All errors reporting non-dictionaries.
-##
 def __validate_remove_non_dicts(config: ParsedConfig) -> tuple[None, list[Error]]:
+    """Removes all non-dictionary powermodes from a configuration. This is an auxiliary method
+    for :func:`validate_config`.
+
+    :param config: Configuration that **may be modified**. After calling this method, it can
+                   type-wise be considered a :data:`ValidatedConfig`, even if only partially
+                   validated.
+    :return: Warnings reported the non-dictionaries that were removed.
+    """
+
     errors: list[Error] = []
 
     for mode in list(config):
@@ -96,17 +125,20 @@ def __validate_remove_non_dicts(config: ParsedConfig) -> tuple[None, list[Error]
 
     return (None, errors)
 
-##
-# @brief Removes all empty dictionaries (power modes) from @p config.
-# @details Auxiliary function for [validate](@ref powermodes.config.validate).
-# @param config Partially validated configuration (it must be certain that all powermodes are
-#               dicitonaries).
-# @param results_from_removal If any empty dicitonary may result from the removal of invalid
-#                             configuration parts. Will affect the error message.
-# @returns All errors reporting empty dictionaries.
-##
 def __validate_remove_empty_dicts(config: ValidatedConfig, results_from_removal: bool) \
     -> tuple[None, list[Error]]:
+    """Removes empty dictionaries (powermodes) from a configuration. This is an auxiliary method
+    for :func:`validate_config`.
+
+    :param config: Partially validated (:data:`ValidatedConfig`) configuration that **may be
+                   modified** (on error).
+    :param results_from_removal: Whether any empty dictionary (powermode) may have been modified
+                                 before, by removing invalidly configured plugins (:data:`True`),
+                                 or if the powermode was already empty in the user's configuration
+                                 file (:data:`False`). Changing this parameter only influences
+                                 eventual error messages.
+    :return: Warnings for removed powermodes.
+    """
 
     errors: list[Error] = []
 
@@ -124,18 +156,17 @@ def __validate_remove_empty_dicts(config: ValidatedConfig, results_from_removal:
 
     return (None, errors)
 
-##
-# @brief Removes all configurations for unknown plugins from @p config.
-# @details Auxiliary function for [validate](@ref powermodes.config.validate).
-# @param config Partially validated configuration (it must be certain that all powermodes are
-#               dicitonaries).
-# @param plugins Loaded plugins.
-# @returns A set of plugin names used in the config file, along with errors reporting unknown
-#          plugins.
-##
 # pylint: disable=too-many-locals
 def __validate_remove_unknown_plugins(config: ValidatedConfig, plugins: LoadedPlugins) \
     -> tuple[set[str], list[Error]]:
+    """Removes all unknown plugins from a configuration. This is an auxiliary method for
+    :func:`validate_config`.
+
+    :param config: Partially validated configuration that **may be modified**.
+    :param plugins: Loaded plugins (see :func:`~powermodes.plugin.load_plugins`).
+    :return: A set of the names of the plugins used in the configuration file, along with warnings
+             for all unknown plugins.
+    """
 
     errors: list[Error] = []
     known: set[str] = set()
@@ -159,16 +190,18 @@ def __validate_remove_unknown_plugins(config: ValidatedConfig, plugins: LoadedPl
 
     return (known, errors)
 
-##
-# @brief Asks plugins to validate their configs.
-# @details Auxiliary function for [validate](@ref powermodes.config.validate).
-# @param config Partially validated configuration (it must be certain that all powermodes are
-#               dicitonaries).
-# @param plugins Plugins mentioned in the configuration file.
-# @returns All errors reported by plugins.
-##
 def __validate_plugins(config: ValidatedConfig, plugins: set[Plugin]) -> \
     tuple[None, list[Error]]:
+    """Calls the :attr:`~powermodes.plugin.Plugin.validate` method for every plugin present in a
+    configuration, removing plugin configurations in case configuration errors are reported by
+    plugins. This is an auxiliary method for :func:`validate_config`.
+
+    :param config: Partially validated configuration (:data:`ValidatedConfig`) that
+                   **may be modified** (on error).
+    :param plugins: Plugins present in the configuration file
+                    (see :func:`__validate_remove_unknown_plugins`).
+    :return: Warnings from plugins.
+    """
 
     errors: list[Error] = []
 
@@ -193,14 +226,27 @@ def __validate_plugins(config: ValidatedConfig, plugins: set[Plugin]) -> \
 
     return (None, errors)
 
-##
-# @brief Checks if a configuration file is valid. Modifies @p config to remove invalid parts.
-# @param config Parsed configuration.
-# @param plugins Loaded plugins.
-# @returns Whether the configuration file is valid or not, along with configuration warnings /
-#          errors.
-##
-def validate(config: ParsedConfig, plugins: LoadedPlugins) -> tuple[bool, list[Error]]:
+def validate_config(config: ParsedConfig, plugins: LoadedPlugins) -> tuple[bool, list[Error]]:
+    """Checks if a configuration file is valid, and modifies it, removing all invalid parts.
+
+    The lists of checks performed is the following:
+
+    - Powermodes (children of the root dictionary) that aren't themselves dictionaries are removed;
+    - Empty powermodes are removed;
+    - Configurations for unknown (not installed) plugins are removed;
+    - Plugins' ``validate`` methods are called, to remove invalidly configured parts from
+      powermodes;
+    - Empty powermodes are removed again (these may result from previous deletion of invalid
+      parts).
+
+    :param config: Parsed configuration file (see :func:`load_config`). **Will be modified** and
+                   will become an :data:`ValidatedConfig`.
+    :param plugins: Loaded plugins (see :func:`~powermodes.plugin.load_plugins`).
+    :return: Whether the configuration file is valid, i.e, powermodes can still proceed with it,
+             even if some invalid parts had to be removed. Reported errors and warnings are also
+             returned.
+    """
+
     errors: list[Error] = []
 
     handle_error_append(errors, __validate_remove_non_dicts(config))
@@ -218,15 +264,17 @@ def validate(config: ParsedConfig, plugins: LoadedPlugins) -> tuple[bool, list[E
     else:
         return (True, errors)
 
-##
-# @brief Applies a power mode from a validated configuration file.
-# @param mode Name of the mode to be applied
-# @param config Validated configuration file.
-# @param plugins Loaded plugins.
-# @returns Whether the mode application was sucessful, along with reported errors.
-##
 def apply_mode(mode: str, config: ValidatedConfig, plugins: LoadedPlugins) -> \
     tuple[bool, list[Error]]:
+    """Applies a powermode from a validated configuration file.
+
+    :param mode: Name of the powermode to be applied.
+    :param config: Validated configuration file.
+    :param plugins: Loaded plugins (see :func:`~powermodes.plugin.load_plugins`).
+    :return: Whether the mode was applied successfully (at least a single plugin reported success),
+             along with errors and warnings reported from plugins'
+             :attr:`~powermodes.plugin.Plugin.configure` methods.
+    """
 
     errors: list[Error] = []
 
