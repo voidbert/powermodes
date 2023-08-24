@@ -75,4 +75,18 @@ TODO
 ### Development
 
 If you'd like to develop a plugin, or contribute to the `powermodes` application, make sure to
-check out our [development documentation](Development.md).
+check build developer documentation:
+
+```bash
+$ cd docs
+$ ./make.sh build           # For plugin developers
+$ ./make.sh build --private # For powermodes developers (includes internal methods)
+```
+
+Make sure you have `sphinx` and `sphinx-autodoc-typehints` installed:
+
+```bash
+$ pip install sphinx sphinx-autodoc-typehints
+```
+
+That documentation contains essential information to starting coding!
