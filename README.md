@@ -40,7 +40,6 @@ Here are some examples. Note that powermodes needs to be **run as root**:
 | Apply power mode in configuration          | `# powermodes -c config.toml -m` *mode* |
 
 ### Configuration
-<!-- Editing this section requires modifications to the documentation in config.py -->
 
 A configuration file is just a [TOML](https://toml.io) file with the following properties:
 
@@ -70,7 +69,8 @@ Here's an example with **hypothetical plugins**:
 As you can see, each plugin can be configured in its own way. Here's the documentation for the
 first-party plugins:
 
-TODO
+- [`intel-epb`](./powermodes/plugins/intelepb.md) - Energy Performance and Energy Bias Hint
+  (Intel CPUs only).
 
 ### Development
 
