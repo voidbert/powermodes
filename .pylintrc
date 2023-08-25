@@ -134,13 +134,9 @@ disable=raw-checker-failed,
         file-ignored,
         suppressed-message,
 
-        # This project uses Doxygen instead.
-        missing-module-docstring,
-        missing-class-docstring,
-        missing-function-docstring,
-
         too-few-public-methods,
-	  no-else-return # How is this on be default?
+        no-else-return, # How is this on be default?
+        global-statement
 
 enable=
 
