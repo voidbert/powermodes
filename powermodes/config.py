@@ -23,7 +23,7 @@ Methods for loading and validating configuration files, along with helper method
 
 Configuration files are described in the `project's README <../../../README.md>`_. In this module,
 powermodes developers are likely interested in :func:`load_config`, :func:`validate_config` and
-:func:`apply_mode`.
+:func:`apply_mode`. Plugin developers may be interested in :func:`plugin_is_in_all_powermodes`.
 
 Module contents
 ^^^^^^^^^^^^^^^
@@ -300,3 +300,28 @@ def apply_mode(mode: str, config: ValidatedConfig, plugins: LoadedPlugins) -> \
         return (False, errors)
     else:
         return (True, errors)
+
+def plugin_is_in_all_powermodes(config: ValidatedConfig, plugin_name: str) -> \
+    tuple[bool, Optional[Error]]:
+    """Checks if all powermodes have a configuration object for a given plugin.
+
+    :param config: A :data:`ValidatedConfig`.
+    :param plugin_name: Name of the plugin to check for presence in all powermodes.
+    :return: Whether or not the plugin is configured in every powermode, along with a warning for
+             all powermodes that don't configure the plugin.
+    """
+
+    not_in: list[str] = []
+    for powermode, powermode_config in config.items():
+        if plugin_name not in powermode_config:
+            not_in.append(powermode)
+
+    if len(not_in) == 0:
+        return (True, None)
+    else:
+        not_in_list = ', '.join(not_in)
+        return (False, Error(ErrorType.WARNING, 'Not all powermodes have a configuration for ' \
+                                               f'{plugin_name}. That means that you may get a ' \
+                                                'partially configured system while hopping ' \
+                                                'between modes. Here are the missing ' \
+                                               f'powermodes: {not_in_list}.' ))

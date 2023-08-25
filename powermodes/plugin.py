@@ -41,7 +41,7 @@ To create a plugin, you must define two constants and two methods:
         ...
 
     # Used to apply a configuration. Also described below.
-    def configure(config: Any) -> tuple[Bool, list[Error]]:
+    def configure(config: Any) -> tuple[bool, list[Error]]:
         ...
 
 Before writing any code, keep in mind that **plugins should only report warnings**, and no errors.
@@ -77,7 +77,8 @@ an invalid configuration (and you don't need to handle it in ``configure``).
 Why does ``validate`` get called with the whole configuration file, instead of once per powermode?
 The way it's done, you can check if all powermodes have configurations for your plugin. That way,
 if you're handling some operating system state, like CPU frequency, for example, you can warn the
-user that they may end up with a partially configured system if they switch from a mode to another.
+user that they may end up with a partially configured system if they switch from a mode to another
+(see :func:`powermodes.config.plugin_is_in_all_powermodes`).
 
 Configuration application
 ^^^^^^^^^^^^^^^^^^^^^^^^^
