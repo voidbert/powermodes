@@ -69,8 +69,11 @@ Here's an example with **hypothetical plugins**:
 As you can see, each plugin can be configured in its own way. Here's the documentation for the
 first-party plugins:
 
+- [`command`](./powermodes/plugins/command.md) - Run commands;
 - [`intel-epb`](./powermodes/plugins/intelepb.md) - Energy Performance and Energy Bias Hint
-  (Intel CPUs only).
+  (Intel CPUs only);
+- [`nmi-watchdog`](./powermodes/plugins/nmiwatchdog.md) - Linux NMI watchdog (kernel hang
+  detector).
 
 ### Development
 
