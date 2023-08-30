@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from subprocess import run, DEVNULL, PIPE
 from typing import Any, Optional, Union
 
+from ..config import iterate_config
 from ..error import Error, ErrorType, handle_error_append
 
 NAME = 'command'
@@ -65,7 +66,7 @@ def __command_validate_command(command: dict[str, Any], powermode: str, number: 
     if 'command' not in command:
         return (None, Error(ErrorType.WARNING, f'Command number {number} in powermode ' \
                                                f'{powermode} must have a value for "command" in ' \
-                                                'the TOML table.'))
+                                                'the TOML table. Ignoring this powermode.'))
     else:
         if isinstance(command['command'], str):
             return (command['command'], None)
@@ -76,7 +77,8 @@ def __command_validate_command(command: dict[str, Any], powermode: str, number: 
         else:
             return (None, Error(ErrorType.WARNING, f'Command number {number} in powermode ' \
                                                    f'{powermode}: "command" (in the TOML table),' \
-                                                    ' must be a string or list of strings.'))
+                                                    ' must be a string or list of strings. ' \
+                                                    'Ignoring this powermode.'))
 
 def __command_validate_boolean(command: dict[str, Any], bool_name: str, default: bool,
                                powermode: str, number: int) -> tuple[bool, Optional[Error]]:
@@ -165,29 +167,26 @@ def validate(config: dict[str, dict[str, Any]]) -> tuple[list[str], list[Error]]
     """See :attr:`powermodes.plugin.Plugin.validate`."""
 
     errors: list[Error] = []
-
     successful: list[str] = []
-    for powermode, powermode_config in config.items():
-        if NAME in powermode_config:
 
-            # Config object must be a list containing commands. All of them must be valid.
-            if isinstance(powermode_config[NAME], list):
+    for powermode, config_obj in iterate_config(config, NAME):
+        # Config object must be a list containing commands. All of them must be valid.
+        if isinstance(config_obj, list):
 
-                powermode_success = True
-                for i in range(0, len(powermode_config[NAME])):
-                    command = handle_error_append(errors,
-                        __command_validate(powermode_config[NAME][i], powermode, i + 1))
+            powermode_success = True
+            for i, command_dict in enumerate(config_obj):
+                command = handle_error_append(errors, \
+                    __command_validate(command_dict, powermode, i + 1))
 
-                    if command is None:
-                        powermode_success = False
+                if command is None:
+                    powermode_success = False
 
-                if powermode_success:
-                    successful.append(powermode)
-            else:
-                errors.append(Error(ErrorType.WARNING, f'config in powermode {powermode} must ' \
-                                                        'be a list of commands.'))
+            if powermode_success:
+                successful.append(powermode)
+
         else:
-            successful.append(powermode)
+            errors.append(Error(ErrorType.WARNING, f'config in powermode {powermode} must ' \
+                                                    'be a list of commands.'))
 
     return (successful, errors)
 

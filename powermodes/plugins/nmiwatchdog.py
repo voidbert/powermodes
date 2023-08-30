@@ -24,7 +24,8 @@ Plugin to enable / disable the NMI (non-maskable interrupt) watchdog. See how to
 """
 
 from typing import Any
-from ..config import plugin_is_in_all_powermodes
+
+from ..config import iterate_config, plugin_is_in_all_powermodes
 from ..error import Error, ErrorType, handle_error_append
 from ..pluginutils import write_text_file
 
@@ -38,13 +39,12 @@ def validate(config: dict[str, dict[str, Any]]) -> tuple[list[str], list[Error]]
     handle_error_append(errors, plugin_is_in_all_powermodes(config, NAME))
 
     successful: list[str] = []
-    for powermode, powermode_config in config.items():
-        if NAME in powermode_config:
-            if isinstance(powermode_config[NAME], bool):
-                successful.append(powermode)
-            else:
-                errors.append(Error(ErrorType.WARNING, f'config in powermode {powermode} must be' \
-                                                        'a boolean.'))
+    for powermode, config_obj in iterate_config(config, NAME):
+        if isinstance(config_obj, bool):
+            successful.append(powermode)
+        else:
+            errors.append(Error(ErrorType.WARNING, f'config in powermode {powermode} must be ' \
+                                                    'a boolean.'))
     return (successful, errors)
 
 def configure(config: bool) -> tuple[bool, list[Error]]:

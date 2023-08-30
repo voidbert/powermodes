@@ -27,7 +27,7 @@ Plugin to control the `Intel Performance and Energy Bias Hint
 from pathlib import Path
 from typing import Any, Optional, Union
 
-from ..config import plugin_is_in_all_powermodes
+from ..config import iterate_config, plugin_is_in_all_powermodes
 from ..error import Error, ErrorType, handle_error_append
 from ..pluginutils import write_text_file
 
@@ -133,12 +133,10 @@ def validate(config: dict[str, dict[str, Any]]) -> tuple[list[str], list[Error]]
     handle_error_append(errors, plugin_is_in_all_powermodes(config, NAME))
 
     successful: list[str] = []
-    for powermode, powermode_config in config.items():
-        if NAME in powermode_config:
-            if handle_error_append(errors, \
-                                   __interpret_config_object(powermode_config[NAME], powermode)) \
-               is not None:
-                successful.append(powermode)
+    for powermode, config_obj in iterate_config(config, NAME):
+        if handle_error_append(errors, __interpret_config_object(config_obj, powermode)) \
+           is not None:
+            successful.append(powermode)
 
     return (successful, errors)
 

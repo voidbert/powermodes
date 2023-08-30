@@ -23,12 +23,14 @@ Methods for loading and validating configuration files, along with helper method
 
 Configuration files are described in the `project's README <../../../README.md>`_. In this module,
 powermodes developers are likely interested in :func:`load_config`, :func:`validate_config` and
-:func:`apply_mode`. Plugin developers may be interested in :func:`plugin_is_in_all_powermodes`.
+:func:`apply_mode`. Plugin developers may be interested in :func:`plugin_is_in_all_powermodes`
+and :func:`iterate_config`.
 
 Module contents
 ^^^^^^^^^^^^^^^
 """
 
+from collections.abc import Generator
 from tomllib import TOMLDecodeError, load
 from typing import Any, Optional
 
@@ -208,12 +210,10 @@ def __validate_plugins(config: ValidatedConfig, plugins: set[Plugin]) -> \
     for plugin in plugins:
         successful = handle_error_append(errors, wrapped_validate(plugin, config))
 
-
         error_modes: list[str] = \
-        list(filter(lambda mode, suc=successful: mode not in suc, # type: ignore
-                    # pylint: disable=line-too-long
-                    filter(lambda key, name=plugin.name, cfg=config: name in cfg[key], # type: ignore
-                           config.keys())))
+            list(filter(lambda mode, suc=successful, name=plugin.name, cfg=config: # type: ignore
+                        name in cfg[mode] and mode not in suc,
+                        config.keys()))
 
         if len(error_modes) != 0:
             errors.append(Error(ErrorType.WARNING, f'Removing plugin {plugin.name} from the ' \
@@ -325,3 +325,43 @@ def plugin_is_in_all_powermodes(config: ValidatedConfig, plugin_name: str) -> \
                                                 'partially configured system while hopping ' \
                                                 'between modes. Here are the missing ' \
                                                f'powermodes: {not_in_list}.' ))
+
+def iterate_config(config: ValidatedConfig, plugin_name: str) \
+    -> Generator[tuple[str, Any], None, None]:
+    """Iterates through a configuration file, through all powermodes, and returns tuples
+    containing the name of the current powermode, and the configuration object for the plugin.
+
+    :param config: :data:`ValidatedConfig` to iterate through.
+    :param plugin_name: Name of the plugin that the returned configuration objects will configure.
+    :return: Iterates through tuples, containing powermodes' names and configuration objects for
+             the plugin.
+
+    Example:
+
+    Consider the following configuration file, after being parsed and validated
+    (see :func:`powermodes.config.load_config` and :func:`powermodes.config.validate_config`).
+
+    .. code:: toml
+
+        [mode1]
+            pluginA = 1
+            pluginB = 2
+
+        [mode2]
+            pluginB = 3
+
+        [mode3]
+            pluginA = 4
+            pluginB = 5
+
+    Then,
+
+    .. code:: python
+
+        >>> list(iterate_config(config, 'pluginA'))
+        [ ('mode1', 1), ('mode3', 4) ]
+    """
+
+    for powermode, powermode_config in config.items():
+        if plugin_name in powermode_config:
+            yield (powermode, powermode_config[plugin_name])

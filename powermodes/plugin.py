@@ -72,7 +72,9 @@ something like:
     (['performance'], Error(ErrorType.WARNING, 'world is not a gas giant'))
 
 The ``pluginA`` object is removed from the ``powersave`` powermode, so that the user can't apply
-an invalid configuration (and you don't need to handle it in ``configure``).
+an invalid configuration (and you don't need to handle it in ``configure``). You don't have to
+return powermodes that don't have a configuration object for your plugin: warnings won't be
+reported for those.
 
 Why does ``validate`` get called with the whole configuration file, instead of once per powermode?
 The way it's done, you can check if all powermodes have configurations for your plugin. That way,
