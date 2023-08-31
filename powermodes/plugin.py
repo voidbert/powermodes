@@ -95,13 +95,14 @@ Module contents
 ^^^^^^^^^^^^^^^
 """
 
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass
 from importlib import import_module
 from inspect import signature
 from pathlib import Path
 from traceback import format_exception
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 from .error import Error, ErrorType, handle_error_append, set_unspecified_origins
 
