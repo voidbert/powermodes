@@ -32,7 +32,7 @@ from ..error import Error, ErrorType, handle_error_append
 from ..pluginutils import write_text_file
 
 NAME = 'intel-epb'
-VERSION = '1.0'
+VERSION = '1.1'
 
 __epb_files: list[Path] = []
 """Files used to control Intel EPB. See :func:`__list_epb_files`"""
@@ -94,7 +94,7 @@ def __list_epb_files() -> tuple[list[Path], list[Error]]:
 def __interpret_config_object(obj: Any, powermode: str) -> tuple[Optional[int], Optional[Error]]:
     """Interprets a configuration provided to this plugin.
 
-    :param obj: Object used to configure this plugin.
+    :param obj: Object used to configure this plugin. **Must not be the** ``"skip"`` **string.**
     :param powermode: Name of the powermode where this configuration object is, for error message
                       purposes.
 
@@ -117,7 +117,7 @@ def __interpret_config_object(obj: Any, powermode: str) -> tuple[Optional[int], 
     elif isinstance(obj, str) and obj in string_map:
         return (string_map[obj], None)
     else:
-        accepted_strings = ', '.join(map(lambda s: f'"{s}"', string_map.keys()))
+        accepted_strings = ', '.join(map(lambda s: f'"{s}"', list(string_map.keys()) + ['skip']))
         return (None, Error(ErrorType.WARNING, f'{NAME}, in powermode {powermode}, must be ' \
                                                 'configured with an integer between 0 and 15, ' \
                                                 'or one of the following strings: ' \
@@ -134,8 +134,8 @@ def validate(config: dict[str, dict[str, Any]]) -> tuple[list[str], list[Error]]
 
     successful: list[str] = []
     for powermode, config_obj in iterate_config(config, NAME):
-        if handle_error_append(errors, __interpret_config_object(config_obj, powermode)) \
-           is not None:
+        if config_obj == 'skip' or handle_error_append(errors, \
+               __interpret_config_object(config_obj, powermode)) is not None:
             successful.append(powermode)
 
     return (successful, errors)
@@ -144,6 +144,9 @@ def configure(config: Union[int, str]) -> tuple[bool, list[Error]]:
     """See :attr:`powermodes.plugin.Plugin.configure`."""
 
     errors: list[Error] = []
+
+    if config == 'skip':
+        return (True, [])
 
     # Errors can safely be ignored (removed in validate)
     value = str(__interpret_config_object(config, '')[0]) + '\n'
