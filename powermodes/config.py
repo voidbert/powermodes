@@ -303,7 +303,14 @@ def apply_mode(mode: str, config: ValidatedConfig, plugins: LoadedPlugins) -> \
 
 def plugin_is_in_all_powermodes(config: ValidatedConfig, plugin_name: str) -> \
     tuple[bool, Optional[Error]]:
-    """Checks if all powermodes have a configuration object for a given plugin.
+    """Checks if all powermodes have a configuration object for a given plugin. This is useful for
+    plugins that store state on the operating system (e.g.: CPU frequency limits), where having a
+    powermode unconfigured, and then applying it, will result in keeping whatever was configured
+    for the previously applied powermode.
+
+    As a guideline, a plugin can be configured with the string ``"skip"``, and it'll be recognized
+    as acknowledgment from the user that they are aware of the problem relating to stored operating
+    system state.
 
     :param config: A :data:`ValidatedConfig`.
     :param plugin_name: Name of the plugin to check for presence in all powermodes.
