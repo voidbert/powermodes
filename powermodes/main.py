@@ -64,8 +64,14 @@ def __format_version() -> tuple[str, list[Error]]:
 
     if len(plugins) != 0:
         message += '\nVersions of installed plugins:\n'
-        for plugin in plugins.values():
-            message += f'{plugin.name} {plugin.version}\n'
+
+        sorted_plugins = list(plugins.values())
+        sorted_plugins.sort(key = lambda p: p.name)
+        name_max_length = max(map(lambda p: len(p.name), sorted_plugins))
+
+        for plugin in sorted_plugins:
+            spaces = ' ' * (name_max_length + 1 - len(plugin.name))
+            message += plugin.name + spaces + plugin.version + '\n'
 
     return (message, errors)
 
