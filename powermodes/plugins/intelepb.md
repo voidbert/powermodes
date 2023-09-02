@@ -26,6 +26,9 @@ processors.
 
 Source: https://elixir.bootlin.com/linux/v6.4.12/source/arch/x86/include/asm/msr-index.h#L837
 
+- The string `"skip"`, to signal that you're aware that you left a powermode not configured, and
+applying it will keep the settings from the last applied powermode.
+
 ### Example
 
 ``` toml

@@ -23,14 +23,14 @@ Plugin to enable / disable the NMI (non-maskable interrupt) watchdog. See how to
 `here <../../../powermodes/plugins/nmiwatchdog.md>`_.
 """
 
-from typing import Any
+from typing import Any, Union
 
 from ..config import iterate_config, plugin_is_in_all_powermodes
 from ..error import Error, ErrorType, handle_error_append
 from ..pluginutils import write_text_file
 
 NAME = 'nmi-watchdog'
-VERSION = '1.0'
+VERSION = '1.1'
 
 def validate(config: dict[str, dict[str, Any]]) -> tuple[list[str], list[Error]]:
     """See :attr:`powermodes.plugin.Plugin.validate`."""
@@ -40,15 +40,18 @@ def validate(config: dict[str, dict[str, Any]]) -> tuple[list[str], list[Error]]
 
     successful: list[str] = []
     for powermode, config_obj in iterate_config(config, NAME):
-        if isinstance(config_obj, bool):
+        if isinstance(config_obj, bool) or config_obj == 'skip':
             successful.append(powermode)
         else:
-            errors.append(Error(ErrorType.WARNING, f'config in powermode {powermode} must be ' \
-                                                    'a boolean.'))
+            errors.append(Error(ErrorType.WARNING, f'config, in powermode "{powermode}" must ' \
+                                                    'be a boolean or the string "skip".'))
     return (successful, errors)
 
-def configure(config: bool) -> tuple[bool, list[Error]]:
+def configure(config: Union[bool, str]) -> tuple[bool, list[Error]]:
     """See :attr:`powermodes.plugin.Plugin.configure`."""
+
+    if isinstance(config, str): # "skip"
+        return (True, [])
 
     errors: list[Error] = []
     write_string = { False: '0\n', True: '1\n' }[config]
